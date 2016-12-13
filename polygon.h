@@ -2,6 +2,7 @@
 #include <vector>
 #include "vec4.h"
 #include "line.h"
+#include <Windows.h>
 
 class polygon
 {

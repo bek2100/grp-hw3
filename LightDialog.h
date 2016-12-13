@@ -32,4 +32,7 @@ public:
     afx_msg void OnBnClickedRadioLight();
 //    afx_msg void On();
     virtual BOOL OnInitDialog();
+	afx_msg void OnBnClickedLightEnabled();
+	afx_msg void OnCbnSelchangeLightType();
+	afx_msg void OnCbnSelchangeLightSpace();
 };

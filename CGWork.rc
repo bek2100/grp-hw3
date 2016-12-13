@@ -108,6 +108,7 @@ BEGIN
         BEGIN
             MENUITEM "&Flat",                       ID_LIGHT_SHADING_FLAT
             MENUITEM "&Gouraud",                    ID_LIGHT_SHADING_GOURAUD
+            MENUITEM "Phong",                       ID_POLYGON_GIVEN
         END
         MENUITEM "&Parameters...",              ID_LIGHT_CONSTANTS
     END
@@ -127,6 +128,11 @@ BEGIN
             MENUITEM "Given",                       ID_VERTEX_GIVEN
             MENUITEM "Calculated",                  ID_VERTEX_CALCULATED
         END
+    END
+    POPUP "Render"
+    BEGIN
+        MENUITEM "On Screen",                   ID_POLYGON_CALCULATED
+        MENUITEM "To File",                     ID_RENDER_TOFILE
     END
 END
 

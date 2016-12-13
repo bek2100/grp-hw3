@@ -12,6 +12,7 @@ using std::cout;
 using std::endl;
 #include "MaterialDlg.h"
 #include "LightDialog.h"
+#include <algorithm> 
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -29,6 +30,7 @@ static char THIS_FILE[] = __FILE__;
 #include <math.h>
 #include "line.h"
 #include <unordered_map>
+#include <vector>
 // For Status Bar access
 #include "MainFrm.h"
 
@@ -202,8 +204,6 @@ BOOL CCGWorkView::PreCreateWindow(CREATESTRUCT& cs)
 	return CView::PreCreateWindow(cs);
 }
 
-
-
 int CCGWorkView::OnCreate(LPCREATESTRUCT lpCreateStruct) 
 {
 	if (CView::OnCreate(lpCreateStruct) == -1)
@@ -270,10 +270,6 @@ BOOL CCGWorkView::SetupViewingOrthoConstAspect(void)
 {
 	return TRUE;
 }
-
-
-
-
 
 BOOL CCGWorkView::OnEraseBkgnd(CDC* pDC) 
 {
@@ -558,14 +554,17 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 	return 0;
 };
 
-void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
+
+void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y){
 	
 	// if the line is beyond the screen space, dont bother drawing it
 	if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
 		&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 		(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 		return;
-
+	bool xy = true;
+	if (x_y == NULL)
+		xy = false;
 	// algorithm vars
 	int x1, x2, y1, y2, dx, dy, d;
 	int north_er, north_west_er, west_er, south_west_er, south_er, south_east_er, east_er, north_east_er;
@@ -606,6 +605,9 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
 
 	if (IN_RANGE(x, y))
 		arr[y + m_WindowWidth * x] = color;
+	if (xy){
+		(*x_y)[y].push_back(x);
+	}
 	// select the correct midpoint algorithm (direction and incline)
 	if (dx == 0){ // horizontal y line or line in z direction only
 		//move in positive y direction only
@@ -614,6 +616,9 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
 			y = y + 1;	
 			if (IN_RANGE(x, y))
 				arr[y + m_WindowWidth * x] = color;
+			if (xy){
+				(*x_y)[y].push_back(x);
+			}
 		}
 		return;
 	}
@@ -634,6 +639,9 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
 			}
 			if (IN_RANGE(x, y))
 				arr[y + m_WindowWidth * x] = color;
+			if (xy){
+				(*x_y)[y].push_back(x);
+			}
 		}
 	}
 	else if (0 < incline && incline <= 1)
@@ -651,6 +659,9 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
 			}
 			if (IN_RANGE(x, y))
 				arr[y + m_WindowWidth * x] = color;
+			if (xy){
+				(*x_y)[y].push_back(x);
+			}
 		}
 	}
 	else if (-1 < incline && incline <= 0){
@@ -667,6 +678,9 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
 			}
 			if (IN_RANGE(x, y))
 				arr[y + m_WindowWidth * x] = color;
+			if (xy){
+				(*x_y)[y].push_back(x);
+			}
 		}
 	}
 	else if (incline <= -1){ // condition unneccessary, exists to make conditions clear
@@ -683,10 +697,59 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color){
 			}
 			if (IN_RANGE(x, y))
 				arr[y + m_WindowWidth * x] = color;
+			if (xy){
+				(*x_y)[y].push_back(x);
+			}
 		}
 	}
 
 	return;
+}
+
+void CCGWorkView::ScanConversion(COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
+	vec4 p1, p2;
+	int min_y = m_WindowWidth - 1;
+	int max_y = 1;
+	std::unordered_map<int, std::vector<int>> x_y = std::unordered_map<int, std::vector<int>>();
+	for (unsigned int pnt = 0; pnt < p.points.size() -1; pnt++){
+		p1 = p.points[pnt]* cur_transform;
+		p2 = p.points[pnt + 1] * cur_transform;
+		if (p1.y / p1.p < p2.y / p2.p){
+			min_y = static_cast<int> (p1.y / p1.p < min_y ? p1.y / p1.p : min_y);
+			max_y = static_cast<int> (p2.y / p2.p> max_y ? p2.y / p2.p : max_y);
+		}
+		else{
+			min_y = static_cast<int>(p2.y / p1.p < min_y ? p2.y / p2.p : min_y);
+			max_y = static_cast<int>(p1.y / p1.p > max_y ? p1.y / p1.p : max_y);
+		}
+		DrawLine(arr, p1, p2, color, &x_y);
+	}
+	p1 = p.points[p.points.size() - 1] * cur_transform;
+	p2 = p.points[0] * cur_transform;
+	DrawLine(arr, p1, p2, color, &x_y);
+	if (p1.y / p1.p < p2.y / p2.p){
+		min_y = static_cast<int> (p1.y / p1.p < min_y ? p1.y / p1.p : min_y);
+		max_y = static_cast<int> (p2.y / p2.p> max_y ? p2.y / p2.p : max_y);
+	}
+	else{
+		min_y = static_cast<int>(p2.y / p1.p < min_y ? p2.y / p2.p : min_y);
+		max_y = static_cast<int>(p1.y / p1.p > max_y ? p1.y / p1.p : max_y);
+	}
+
+	for (int y = min_y; y < max_y; y++){
+		if (!x_y[y].empty()){
+		std::sort(x_y[y].begin(), x_y[y].end());
+		bool draw = true;
+		for (unsigned int i = 0; i < x_y[y].size() -1; i++){
+			for (int x = x_y[y][i]; x < x_y[y][i + 1]; x++){
+				if (!IN_RANGE(x, y))
+					break;
+				arr[y + m_WindowWidth * x] = color;
+			}
+		}
+	}
+	}
+	x_y.clear();
 }
 
 void CCGWorkView::DrawBoundBox(COLORREF *arr, model &model, mat4 cur_transform, COLORREF color){
@@ -736,7 +799,6 @@ void CCGWorkView::RenderScene() {
 	
 	std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
 	vec4 p1, p2;
-	line cur_line;
 	polygon cur_polygon;
 	mat4 cur_transform;
 	for (unsigned int m = 0; m < models.size(); m++){
@@ -764,10 +826,13 @@ void CCGWorkView::RenderScene() {
 				DrawLine(m_screen, p1, p2, m_vertex_norm_color);
 			}
 		}
-		for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
+		/*for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
 			p1 = (models[m].points_list[pnt].p_a)* cur_transform;
 			p2 = (models[m].points_list[pnt].p_b)* cur_transform;
 			DrawLine(m_screen, p1, p2, models[m].color);
+		}*/
+		for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+			ScanConversion(m_screen, models[m].polygons[pol], cur_transform, models[m].color);
 		}
 		if (m_bound_box){
 			DrawBoundBox(m_screen, models[m], cur_transform, m_boundbox_color);
@@ -815,10 +880,6 @@ void CCGWorkView::OnFileLoad()
 	} 
 
 }
-
-
-
-
 
 // VIEW HANDLERS ///////////////////////////////////////////
 
@@ -897,7 +958,6 @@ void CCGWorkView::OnActionResetView()
 	
 	RenderScene();
 }
-
 
 // OBJ/CAMERA VIEW TOGGLE //////////////////////////////////
 

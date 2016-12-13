@@ -18,6 +18,7 @@
 
 #include "vec4.h"
 #include "line.h"
+#include <unordered_map>
 #include "polygon.h"
 #include <vector>
 #include "model.h"
@@ -56,8 +57,9 @@ private:
 	
 
 	// our functions
-	void DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color);
+	void DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y= NULL);
 	void DrawBoundBox(COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
+	void ScanConversion(COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;
 	COLORREF m_boundbox_color;

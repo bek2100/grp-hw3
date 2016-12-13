@@ -24,3 +24,5 @@ bool line::operator==(const line &r) const{
 	else
 		return false;
 }
+
+

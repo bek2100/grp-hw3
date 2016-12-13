@@ -72,6 +72,9 @@ BEGIN_MESSAGE_MAP(CLightDialog, CDialog)
     ON_BN_CLICKED(IDC_RADIO_LIGHT6, &CLightDialog::OnBnClickedRadioLight)
     ON_BN_CLICKED(IDC_RADIO_LIGHT7, &CLightDialog::OnBnClickedRadioLight)
     ON_BN_CLICKED(IDC_RADIO_LIGHT8, &CLightDialog::OnBnClickedRadioLight)
+	ON_BN_CLICKED(IDC_LIGHT_ENABLED, &CLightDialog::OnBnClickedLightEnabled)
+	ON_CBN_SELCHANGE(IDC_LIGHT_TYPE, &CLightDialog::OnCbnSelchangeLightType)
+	ON_CBN_SELCHANGE(IDC_LIGHT_SPACE, &CLightDialog::OnCbnSelchangeLightSpace)
 END_MESSAGE_MAP()
 
 void CLightDialog::SetDialogData( LightID id,const LightParams& light )
@@ -112,4 +115,22 @@ BOOL CLightDialog::OnInitDialog()
 
     return TRUE;  // return TRUE unless you set the focus to a control
     // EXCEPTION: OCX Property Pages should return FALSE
+}
+
+
+void CLightDialog::OnBnClickedLightEnabled()
+{
+	// TODO: Add your control notification handler code here
+}
+
+
+void CLightDialog::OnCbnSelchangeLightType()
+{
+	// TODO: Add your control notification handler code here
+}
+
+
+void CLightDialog::OnCbnSelchangeLightSpace()
+{
+	// TODO: Add your control notification handler code here
 }
