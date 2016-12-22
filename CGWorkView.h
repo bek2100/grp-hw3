@@ -57,9 +57,9 @@ private:
 	
 
 	// our functions
-	void DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y= NULL);
-	void DrawBoundBox(COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
-	void ScanConversion(COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
+	void DrawLine(int *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y = NULL);
+	void DrawBoundBox(int *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
+	void ScanConversion(int *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;
 	COLORREF m_boundbox_color;
@@ -116,6 +116,7 @@ protected:
 	double m_AspectRatio;		// hold the fixed Aspect Ration
 	double m_mouse_sensetivity;
 	COLORREF *m_screen;
+	int *z_buffer;
 	HBITMAP m_map;
 
 // Generated message map functions

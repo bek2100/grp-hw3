@@ -23,7 +23,7 @@ namespace std
 		size_t operator()(const line& p) const
 		{
 			// Compute individual hash values for two data members and combine them using XOR and bit shifting
-			return (hash<double>()(p.p_a.x + p.p_a.y) + hash<double>()(p.p_b.x + p.p_b.y));
+			return (hash<double>()(p.p_a.x + p.p_a.y+ p.p_a.z) + hash<double>()(p.p_b.x + p.p_b.y+ p.p_b.z));
 		}
 	};
 	template < >
@@ -116,27 +116,32 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 
 	// determine the primat screen space scale for this group of loaded objects
 	mat4 view_space_scale;
-	double max_x, max_y;
-	double min_x, min_y;
+	double max_x, max_y, max_z;
+	double min_x, min_y, min_z;
 
 	max_x = models.rbegin()[0].max_vec.x;
 	max_y = models.rbegin()[0].max_vec.y;
+	max_z = models.rbegin()[0].max_vec.z;
 
 	min_x = models.rbegin()[0].min_vec.x;
 	min_y = models.rbegin()[0].min_vec.y;
+	min_z = models.rbegin()[0].min_vec.z;
 
 	for (int m = 1; m < model_cnt; m++){
 		min_x = models.rbegin()[m].min_vec.x < min_x ? models.rbegin()[m].min_vec.x : min_x;
 		min_y = models.rbegin()[m].min_vec.y < min_y ? models.rbegin()[m].min_vec.y : min_y;
+		min_z = models.rbegin()[m].min_vec.z < min_z ? models.rbegin()[m].min_vec.z : min_z;
 
 		max_x = models.rbegin()[m].max_vec.x > max_x ? models.rbegin()[m].max_vec.x : max_x;
 		max_y = models.rbegin()[m].max_vec.y > max_y ? models.rbegin()[m].max_vec.y : max_y;
+		max_z = models.rbegin()[m].max_vec.z > max_z ? models.rbegin()[m].max_vec.z : max_z;
 	}
 
 	double box_x = max_x - min_x;
 	double box_y = max_y - min_y;
+	double box_z = max_z - min_z;
 
-	double max_box = max(box_x, box_y);
+	double max_box = max(box_z,max(box_x, box_y));
 
 	if (max_box == 0) max_box = 1;
 	view_space_scale[0][0] = (double)1 / max_box;

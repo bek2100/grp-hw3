@@ -119,6 +119,7 @@ CCGWorkView::CCGWorkView()
 	m_nAction = ID_ACTION_ROTATE;
 	m_nView = ID_VIEW_ORTHOGRAPHIC;	
 	m_screen = NULL;
+	z_buffer = NULL;
 	polygon_normal = NULL;
 
 	m_object_space_trans = false;
@@ -293,6 +294,7 @@ void CCGWorkView::OnDraw(CDC* pDC)
 
 	delete m_screen;
 	m_screen = (COLORREF*)calloc(m_WindowWidth * m_WindowHeight, sizeof(COLORREF));
+	z_buffer = (int*)calloc(m_WindowWidth * m_WindowHeight, sizeof(int));
 
 	mat4 screen_space_scale;
 	mat4 screen_space_translate;
@@ -331,6 +333,9 @@ void CCGWorkView::OnDestroy()
 	CView::OnDestroy();
 	if (m_screen){
 		delete m_screen;
+	}
+	if (z_buffer){
+		delete z_buffer;
 	}
 
 	if (m_hDC){
@@ -554,8 +559,63 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 	return 0;
 };
 
+static int Depth(std::vector<vec4> q, int x, int y){
+	
+	vec4 p1, p2;
+	std::vector<vec4> points;
+	unsigned int i;
+	for (i = 0; i < q.size(); i++){
+		p1 = q[i];
+		if (i + 1 == q.size())
+			p2 = q[0];
+		else p2 = q[i + 1];
+		double y1 = max(p1.y / p1.p, p2.y / p2.p);
+		double y2 = min(p1.y / p1.p, p2.y / p2.p);
+		if (y <= y1 && y >= y2){
+			if (x == static_cast<int> (p1.x / p1.p))
+				return static_cast<int>(p1.z / p1.p);
 
-void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y){
+			if (x == static_cast<int>(p2.x / p1.p))
+				return static_cast<int>(p2.z / p2.p);
+
+			double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
+			double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
+			double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
+			double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
+			double z = (p1.z / p1.p)*d1 / d + (1 - d1 / d)*(p2.z / p2.p);
+			if (x == static_cast<int>(x1))
+				return static_cast<int>(z);
+			points.push_back(vec4(x1, y, z, 1));
+		}
+	}
+	
+	for (i = 0; i < points.size(); i++){
+		p1 = points[i];
+		if (i + 1 == points.size())
+			p2 = points[0];
+		else p2 = points[i + 1];
+		int x1 = static_cast<int> (max(p1.x, p2.x));
+		int x2 = static_cast<int> (min(p1.x, p2.x));
+		if (x <= x1 && x >= x2){
+			double d1 = p1.x - x;
+			double d = p1.x - p2.x;
+			double z = p1.z*(d1 / d) + (1 - (d1 / d))*p2.z;
+			return static_cast<int>(z);
+		}
+	}
+	return NULL;
+}
+
+static int LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
+	double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
+	double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
+	double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
+	double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
+	double z = (p1.z / p1.p)*d1 / d + (1 - d1 / d)*(p2.z / p2.p);
+	return static_cast<int>(z);
+}
+
+void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y){
 	
 	// if the line is beyond the screen space, dont bother drawing it
 	if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
@@ -601,10 +661,15 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, st
 	south_west_er = 2 * dx - 2 * dy;
 	south_er = 2 * dx;
 	south_east_er = 2 * dx + 2 * dy;
-		
-
-	if (IN_RANGE(x, y))
-		arr[y + m_WindowWidth * x] = color;
+	
+	int z;
+	if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
+		z = LinePointDepth(p1, p2, x, y);
+		if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+			arr[y + m_WindowWidth * x] = color;
+			z_arr[y + m_WindowWidth * x] = z;
+		}
+	}
 	if (xy){
 		(*x_y)[y].push_back(x);
 	}
@@ -614,8 +679,13 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, st
 			
 		while (y < y2){
 			y = y + 1;	
-			if (IN_RANGE(x, y))
-				arr[y + m_WindowWidth * x] = color;
+			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
+				z = LinePointDepth(p1, p2, x, y);
+				if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+					arr[y + m_WindowWidth * x] = color;
+					z_arr[y + m_WindowWidth * x] = z;
+				}
+			}
 			if (xy){
 				(*x_y)[y].push_back(x);
 			}
@@ -637,8 +707,13 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, st
 				x = x + 1;
 				y = y + 1;
 			}
-			if (IN_RANGE(x, y))
-				arr[y + m_WindowWidth * x] = color;
+			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
+				z = LinePointDepth(p1, p2, x, y);
+				if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+					arr[y + m_WindowWidth * x] = color;
+					z_arr[y + m_WindowWidth * x] = z;
+				}
+			}
 			if (xy){
 				(*x_y)[y].push_back(x);
 			}
@@ -657,8 +732,13 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, st
 				x = x + 1;
 				y = y + 1;
 			}
-			if (IN_RANGE(x, y))
-				arr[y + m_WindowWidth * x] = color;
+			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
+				z = LinePointDepth(p1, p2, x, y);
+				if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+					arr[y + m_WindowWidth * x] = color;
+					z_arr[y + m_WindowWidth * x] = z;
+				}
+			}
 			if (xy){
 				(*x_y)[y].push_back(x);
 			}
@@ -676,8 +756,13 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, st
 				x = x + 1;
 				y = y - 1;
 			}
-			if (IN_RANGE(x, y))
-				arr[y + m_WindowWidth * x] = color;
+			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
+				z = LinePointDepth(p1, p2, x, y);
+				if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+					arr[y + m_WindowWidth * x] = color;
+					z_arr[y + m_WindowWidth * x] = z;
+				}
+			}
 			if (xy){
 				(*x_y)[y].push_back(x);
 			}
@@ -695,64 +780,65 @@ void CCGWorkView::DrawLine(COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, st
 				x = x + 1;
 				y = y - 1;
 			}
-			if (IN_RANGE(x, y))
-				arr[y + m_WindowWidth * x] = color;
+			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
+				z = LinePointDepth(p1, p2, x, y);
+				if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+					arr[y + m_WindowWidth * x] = color;
+					z_arr[y + m_WindowWidth * x] = z;
+				}
+			}
 			if (xy){
 				(*x_y)[y].push_back(x);
 			}
 		}
 	}
-
 	return;
 }
 
-void CCGWorkView::ScanConversion(COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
+
+
+void CCGWorkView::ScanConversion(int *z_arr,COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
 	vec4 p1, p2;
 	int min_y = m_WindowWidth - 1;
 	int max_y = 1;
+	std::vector<vec4> q;
 	std::unordered_map<int, std::vector<int>> x_y = std::unordered_map<int, std::vector<int>>();
-	for (unsigned int pnt = 0; pnt < p.points.size() -1; pnt++){
+	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
 		p1 = p.points[pnt]* cur_transform;
-		p2 = p.points[pnt + 1] * cur_transform;
+		if (pnt + 1 == p.points.size()) p2 = p.points[0] * cur_transform;
+		else p2 = p.points[pnt + 1] * cur_transform;
+		q.push_back(p1);
 		if (p1.y / p1.p < p2.y / p2.p){
 			min_y = static_cast<int> (p1.y / p1.p < min_y ? p1.y / p1.p : min_y);
-			max_y = static_cast<int> (p2.y / p2.p> max_y ? p2.y / p2.p : max_y);
+			max_y = static_cast<int> (p2.y / p2.p > max_y ? p2.y / p2.p : max_y);
 		}
 		else{
 			min_y = static_cast<int>(p2.y / p1.p < min_y ? p2.y / p2.p : min_y);
 			max_y = static_cast<int>(p1.y / p1.p > max_y ? p1.y / p1.p : max_y);
 		}
-		DrawLine(arr, p1, p2, color, &x_y);
-	}
-	p1 = p.points[p.points.size() - 1] * cur_transform;
-	p2 = p.points[0] * cur_transform;
-	DrawLine(arr, p1, p2, color, &x_y);
-	if (p1.y / p1.p < p2.y / p2.p){
-		min_y = static_cast<int> (p1.y / p1.p < min_y ? p1.y / p1.p : min_y);
-		max_y = static_cast<int> (p2.y / p2.p> max_y ? p2.y / p2.p : max_y);
-	}
-	else{
-		min_y = static_cast<int>(p2.y / p1.p < min_y ? p2.y / p2.p : min_y);
-		max_y = static_cast<int>(p1.y / p1.p > max_y ? p1.y / p1.p : max_y);
+		DrawLine(z_arr, arr, p1, p2, color, &x_y);
 	}
 
-	for (int y = min_y; y < max_y; y++){
+	for (int y = min_y; y <= max_y; y++){
 		if (!x_y[y].empty()){
-		std::sort(x_y[y].begin(), x_y[y].end());
-		bool draw = true;
-		for (unsigned int i = 0; i < x_y[y].size() -1; i++){
-			for (int x = x_y[y][i]; x < x_y[y][i + 1]; x++){
-				if (!IN_RANGE(x, y))
-					break;
-				arr[y + m_WindowWidth * x] = color;
+			std::sort(x_y[y].begin(), x_y[y].end());
+			//bool draw = true;
+			for (unsigned int i = 0; i < x_y[y].size() -1; i++){
+				for (int x = x_y[y][i]; x <= x_y[y][i + 1]; x++){
+					if (IN_RANGE(x, y)){
+						int z = Depth(q, x, y);
+						if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
+							arr[y + m_WindowWidth * x] = color;
+							z_arr[y + m_WindowWidth * x] = z;
+						}
+					}
+				}
 			}
 		}
 	}
-	}
-	x_y.clear();
 }
 
-void CCGWorkView::DrawBoundBox(COLORREF *arr, model &model, mat4 cur_transform, COLORREF color){
+void CCGWorkView::DrawBoundBox(int *z_arr, COLORREF *arr, model &model, mat4 cur_transform, COLORREF color){
 
 	//mat4 cur_transform = model.obj_coord_trans * model.view_space_trans * m_screen_space_trans;
 
@@ -777,27 +863,28 @@ void CCGWorkView::DrawBoundBox(COLORREF *arr, model &model, mat4 cur_transform, 
 	vec4 xmax_ymax_zmax(maxx, maxy, maxz, 1.0);
 
 	// zmin rectangle first
-	DrawLine(arr, xmin_ymin_zmin * cur_transform, xmin_ymax_zmin * cur_transform, color);
-	DrawLine(arr, xmin_ymax_zmin * cur_transform, xmax_ymax_zmin * cur_transform, color);
-	DrawLine(arr, xmax_ymax_zmin * cur_transform, xmax_ymin_zmin * cur_transform, color);
-	DrawLine(arr, xmax_ymin_zmin * cur_transform, xmin_ymin_zmin * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymax_zmin * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmax_ymax_zmin * cur_transform, color);
+	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymin_zmin * cur_transform, color);
+	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmin_ymin_zmin * cur_transform, color);
 
 	// zmax rectangle second
-	DrawLine(arr, xmin_ymin_zmax * cur_transform, xmin_ymax_zmax * cur_transform, color);
-	DrawLine(arr, xmin_ymax_zmax * cur_transform, xmax_ymax_zmax * cur_transform, color);
-	DrawLine(arr, xmax_ymax_zmax * cur_transform, xmax_ymin_zmax * cur_transform, color);
-	DrawLine(arr, xmax_ymin_zmax * cur_transform, xmin_ymin_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymin_zmax * cur_transform, xmin_ymax_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymax_zmax * cur_transform, xmax_ymax_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmax_ymax_zmax * cur_transform, xmax_ymin_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmax_ymin_zmax * cur_transform, xmin_ymin_zmax * cur_transform, color);
 
 	// connect the two rectangles next
-	DrawLine(arr, xmin_ymin_zmin * cur_transform, xmin_ymin_zmax * cur_transform, color);
-	DrawLine(arr, xmin_ymax_zmin * cur_transform, xmin_ymax_zmax * cur_transform, color);
-	DrawLine(arr, xmax_ymin_zmin * cur_transform, xmax_ymin_zmax * cur_transform, color);
-	DrawLine(arr, xmax_ymax_zmin * cur_transform, xmax_ymax_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymin_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmin_ymax_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmax_ymin_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymax_zmax * cur_transform, color);
 }
 
 void CCGWorkView::RenderScene() {
 	
 	std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
+	std::fill_n(z_buffer, m_WindowWidth*m_WindowHeight, NULL);
 	vec4 p1, p2;
 	polygon cur_polygon;
 	mat4 cur_transform;
@@ -814,7 +901,7 @@ void CCGWorkView::RenderScene() {
 				cur_polygon = models[m].polygons[count];
 				p1 = cur_polygon.Normal(given_polygon_normal).p_a * cur_transform;
 				p2 = cur_polygon.Normal(given_polygon_normal).p_b * cur_transform;
-				DrawLine(m_screen, p1, p2, m_polygon_norm_color);
+				DrawLine(z_buffer, m_screen, p1, p2, m_polygon_norm_color);
 			}
 		}
 
@@ -823,7 +910,7 @@ void CCGWorkView::RenderScene() {
 			for (unsigned int count = 0; count < vertex_normal.size(); count++){
 				p1 = vertex_normal[count].p_a * cur_transform;
 				p2 = vertex_normal[count].p_b * cur_transform;
-				DrawLine(m_screen, p1, p2, m_vertex_norm_color);
+				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color);
 			}
 		}
 		/*for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
@@ -832,10 +919,10 @@ void CCGWorkView::RenderScene() {
 			DrawLine(m_screen, p1, p2, models[m].color);
 		}*/
 		for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
-			ScanConversion(m_screen, models[m].polygons[pol], cur_transform, models[m].color);
+			ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
 		}
 		if (m_bound_box){
-			DrawBoundBox(m_screen, models[m], cur_transform, m_boundbox_color);
+			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
 		}
 	}
 
