@@ -387,9 +387,9 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 				temp_transform[0][0] = 1;
 
 				temp_transform[1][1] = cosx;
-				temp_transform[1][2] = sinx;
+				temp_transform[1][2] = -sinx;
 
-				temp_transform[2][1] = -sinx;
+				temp_transform[2][1] = sinx;
 				temp_transform[2][2] = cosx;
 
 				temp_transform[3][3] = 1;
@@ -397,11 +397,11 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 			}
 			if (m_nAxis == ID_AXIS_Y){
 				temp_transform[0][0] = cosy;
-				temp_transform[0][2] = siny;
+				temp_transform[0][2] = -siny;
 
 				temp_transform[1][1] = 1;
 
-				temp_transform[2][0] = -siny;
+				temp_transform[2][0] = siny;
 				temp_transform[2][2] = cosy;
 
 				temp_transform[3][3] = 1;
@@ -421,19 +421,19 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 				temp_transform[0][0] = 1;
 
 				temp_transform[1][1] = cosx;
-				temp_transform[1][2] = sinx;
+				temp_transform[1][2] = -sinx;
 
-				temp_transform[2][1] = -sinx;
+				temp_transform[2][1] = sinx;
 				temp_transform[2][2] = cosx;
 
 				temp_transform[3][3] = 1;
 
 				temp_transform_xy[0][0] = cosy;
-				temp_transform_xy[0][2] = siny;
+				temp_transform_xy[0][2] = -siny;
 
 				temp_transform_xy[1][1] = 1;
 
-				temp_transform_xy[2][0] = -siny;
+				temp_transform_xy[2][0] = siny;
 				temp_transform_xy[2][2] = cosy;
 
 				temp_transform_xy[3][3] = 1;
@@ -468,7 +468,7 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 				temp_transform[1][1] = 1;
 
 				temp_transform[2][2] = 1;
-				temp_transform[3][2] = m_mouse_sensetivity * (double)diff_x / m_WindowWidth;
+				temp_transform[3][2] = m_mouse_sensetivity * (double)diff_x / min(m_WindowHeight, m_WindowWidth);
 
 				temp_transform[3][3] = 1;
 			}
@@ -569,8 +569,8 @@ static int Depth(std::vector<vec4> q, int x, int y){
 		if (i + 1 == q.size())
 			p2 = q[0];
 		else p2 = q[i + 1];
-		double y1 = max(p1.y / p1.p, p2.y / p2.p);
-		double y2 = min(p1.y / p1.p, p2.y / p2.p);
+		int y1 = static_cast<int>(max(p1.y / p1.p, p2.y / p2.p));
+		int y2 = static_cast<int>(min(p1.y / p1.p, p2.y / p2.p));
 		if (y <= y1 && y >= y2){
 			if (x == static_cast<int> (p1.x / p1.p))
 				return static_cast<int>(p1.z / p1.p);
@@ -582,9 +582,8 @@ static int Depth(std::vector<vec4> q, int x, int y){
 			double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
 			double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
 			double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-			double z = (p1.z / p1.p)*d1 / d + (1 - d1 / d)*(p2.z / p2.p);
-			if (x == static_cast<int>(x1))
-				return static_cast<int>(z);
+			double z = (p1.z / p1.p)*(d1 / d) + (1 - (d1 / d))*(p2.z / p2.p);
+			if (x == static_cast<int>(x1)) return z;
 			points.push_back(vec4(x1, y, z, 1));
 		}
 	}
@@ -607,11 +606,9 @@ static int Depth(std::vector<vec4> q, int x, int y){
 }
 
 static int LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
-	double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
-	double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
-	double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
+	double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x, 2));
 	double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-	double z = (p1.z / p1.p)*d1 / d + (1 - d1 / d)*(p2.z / p2.p);
+	double z = (p1.z / p1.p)* (d1 / d) + (1 - (d1 / d))*(p2.z / p2.p);
 	return static_cast<int>(z);
 }
 
@@ -671,13 +668,14 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 		}
 	}
 	if (xy){
-		(*x_y)[y].push_back(x);
+		(*x_y)[y1].push_back(x1);
+		(*x_y)[y2].push_back(x2);
 	}
 	// select the correct midpoint algorithm (direction and incline)
 	if (dx == 0){ // horizontal y line or line in z direction only
 		//move in positive y direction only
 			
-		while (y <= y2){
+		while (y < y2){
 			y = y + 1;	
 			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
 				z = LinePointDepth(p1, p2, x, y);
@@ -697,7 +695,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 
 	if (incline > 1){
 		d = dy - 2 * dx; // try to move in positive y direction only
-		while (y <= y2){
+		while (y < y2){
 			if (d > 0){
 				d = d + north_er;
 				y = y + 1;
@@ -722,7 +720,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	else if (0 < incline && incline <= 1)
 	{
 		d = 2 * dy - dx; // try to move in positive x direction only, possibly positive y
-		while (x <= x2){
+		while (x < x2){
 			if (d < 0){
 				d = d + east_er;
 				x = x + 1;
@@ -746,7 +744,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	}
 	else if (-1 < incline && incline <= 0){
 		d = dx + 2 * dy; // try to move in positive x direction only, possibly negative y
-		while (x <= x2){
+		while (x < x2){
 			if (d > 0){
 				d = d + east_er;
 				x = x + 1;
@@ -770,7 +768,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	}
 	else if (incline <= -1){ // condition unneccessary, exists to make conditions clear
 		d = 2 * dx + dy; // try to move in negative y direction only
-		while (y >= y2){
+		while (y > y2){
 			if (d < 0){
 				d = d + south_er;
 				y = y - 1;
@@ -812,7 +810,7 @@ void CCGWorkView::ScanConversion(int *z_arr,COLORREF *arr, polygon &p, mat4 cur_
 			max_y = static_cast<int> (p2.y / p2.p > max_y ? p2.y / p2.p : max_y);
 		}
 		else{
-			min_y = static_cast<int>(p2.y / p1.p < min_y ? p2.y / p2.p : min_y);
+			min_y = static_cast<int>(p2.y / p2.p < min_y ? p2.y / p2.p : min_y);
 			max_y = static_cast<int>(p1.y / p1.p > max_y ? p1.y / p1.p : max_y);
 		}
 		DrawLine(z_arr, arr, p1, p2, color, &x_y);
@@ -823,8 +821,8 @@ void CCGWorkView::ScanConversion(int *z_arr,COLORREF *arr, polygon &p, mat4 cur_
 			std::sort(x_y[y].begin(), x_y[y].end());
 			bool draw = true;
 			for (unsigned int i = 0; i < x_y[y].size() -1; i++){
-				for (int x = x_y[y][i]; x <= x_y[y][i + 1]; x++){
-					if (IN_RANGE(x, y)){
+				for (int x = x_y[y][i] ; x < x_y[y][i + 1]; x++){
+					if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
 						int z = Depth(q, x, y);
 						if (z && (z > z_arr[y + m_WindowWidth * x] || (z_arr[y + m_WindowWidth * x] == NULL))){
 							arr[y + m_WindowWidth * x] = color;
