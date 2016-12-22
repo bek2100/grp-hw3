@@ -677,7 +677,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	if (dx == 0){ // horizontal y line or line in z direction only
 		//move in positive y direction only
 			
-		while (y < y2){
+		while (y <= y2){
 			y = y + 1;	
 			if (IN_RANGE(x, y) && arr[y + m_WindowWidth * x] != color){
 				z = LinePointDepth(p1, p2, x, y);
@@ -697,7 +697,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 
 	if (incline > 1){
 		d = dy - 2 * dx; // try to move in positive y direction only
-		while (y < y2){
+		while (y <= y2){
 			if (d > 0){
 				d = d + north_er;
 				y = y + 1;
@@ -722,7 +722,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	else if (0 < incline && incline <= 1)
 	{
 		d = 2 * dy - dx; // try to move in positive x direction only, possibly positive y
-		while (x < x2){
+		while (x <= x2){
 			if (d < 0){
 				d = d + east_er;
 				x = x + 1;
@@ -746,7 +746,7 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	}
 	else if (-1 < incline && incline <= 0){
 		d = dx + 2 * dy; // try to move in positive x direction only, possibly negative y
-		while (x < x2){
+		while (x <= x2){
 			if (d > 0){
 				d = d + east_er;
 				x = x + 1;
@@ -763,14 +763,14 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 					z_arr[y + m_WindowWidth * x] = z;
 				}
 			}
-			if (xy){
+			if (xy && incline != 0){
 				(*x_y)[y].push_back(x);
 			}
 		}
 	}
 	else if (incline <= -1){ // condition unneccessary, exists to make conditions clear
 		d = 2 * dx + dy; // try to move in negative y direction only
-		while (y > y2){
+		while (y >= y2){
 			if (d < 0){
 				d = d + south_er;
 				y = y - 1;
@@ -794,7 +794,6 @@ void CCGWorkView::DrawLine(int* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORR
 	}
 	return;
 }
-
 
 
 void CCGWorkView::ScanConversion(int *z_arr,COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
@@ -822,7 +821,7 @@ void CCGWorkView::ScanConversion(int *z_arr,COLORREF *arr, polygon &p, mat4 cur_
 	for (int y = min_y; y <= max_y; y++){
 		if (!x_y[y].empty()){
 			std::sort(x_y[y].begin(), x_y[y].end());
-			//bool draw = true;
+			bool draw = true;
 			for (unsigned int i = 0; i < x_y[y].size() -1; i++){
 				for (int x = x_y[y][i]; x <= x_y[y][i + 1]; x++){
 					if (IN_RANGE(x, y)){
@@ -834,6 +833,8 @@ void CCGWorkView::ScanConversion(int *z_arr,COLORREF *arr, polygon &p, mat4 cur_
 					}
 				}
 			}
+			if (draw) draw = false;
+			else draw = true;
 		}
 	}
 }
