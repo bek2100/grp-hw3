@@ -88,6 +88,7 @@ BEGIN
         MENUITEM "&Translate",                  ID_ACTION_TRANSLATE
         MENUITEM "&Scale",                      ID_ACTION_SCALE
         MENUITEM "Reset view",                  ID_ACTION_RESETVIEW
+        MENUITEM "Clear All",                   ID_VERTEX_CALCULATED
     END
     POPUP "A&xis"
     BEGIN

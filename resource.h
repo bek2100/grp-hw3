@@ -80,13 +80,14 @@
 #define ID_RENDER_TOFILE                32818
 #define ID_VERTEX_GIVEN                 32819
 #define ID_VERTEX_CALCULATED            32820
+#define ID_ACTION_CLEARALL              32820
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        143
-#define _APS_NEXT_COMMAND_VALUE         32819
+#define _APS_NEXT_COMMAND_VALUE         32821
 #define _APS_NEXT_CONTROL_VALUE         1051
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
