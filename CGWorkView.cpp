@@ -42,8 +42,8 @@ extern IPFreeformConvStateStruct CGSkelFFCState;
 // Use this macro to display text messages in the status bar.
 #define STATUS_BAR_TEXT(str) (((CMainFrame*)GetParentFrame())->getStatusBar().SetWindowText(str))
 
-#define IN_RANGE(x, y) ((1 <= x) && (x < (m_WindowHeight - 1)) && (1 <= y) && (y < (m_WindowWidth - 1)))
-
+#define IN_RANGE(x, y) ((1 <= x) && (x < (m_WindowWidth - 1)) && (1 <= y) && (y < (m_WindowHeight - 1)))
+#define SCREEN_SPACE(x, y) (x + m_WindowWidth * y)
 
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView
@@ -322,10 +322,10 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	screen_space_scale[3][3] = 1;
 
 	screen_space_translate[0][0] = 1;
-	screen_space_translate[3][0] = 0.5 * m_WindowHeight;
+	screen_space_translate[3][0] = 0.5 * m_WindowWidth;
 
 	screen_space_translate[1][1] = 1;
-	screen_space_translate[3][1] = 0.5 * m_WindowWidth;
+	screen_space_translate[3][1] = 0.5 * m_WindowHeight;
 
 	screen_space_translate[2][2] = 1;
 	screen_space_translate[3][3] = 1;
@@ -583,25 +583,28 @@ static double Depth(std::vector<vec4> q, int x, int y){
 	vec4 p1, p2;
 	std::vector<vec4> points;
 	unsigned int i;
+
+	if (x == static_cast<int>(p1.x / p1.p) && y == static_cast<int>(p1.y / p1.p)) return p1.z / p1.p;
+	if (x == static_cast<int>(p2.x / p2.p) && y == static_cast<int>(p2.y / p2.p)) return p2.z / p2.p;
+
 	for (i = 0; i < q.size(); i++){
 		p1 = q[i];
-		if (i + 1 == q.size())
-			p2 = q[0];
-		else p2 = q[i + 1];
+		p2 = q[(i + 1) % q.size()];
+		if (y == static_cast<int>(p1.y / p1.p)) points.push_back(vec4(p1.x / p1.p, y, p1.z / p1.p, 1));
+		if (y == static_cast<int>(p2.y / p2.p)) points.push_back(vec4(p2.x / p2.p, y, p2.z / p2.p, 1));
 		double y1 = max(p1.y / p1.p, p2.y / p2.p);
 		double y2 = min(p1.y / p1.p, p2.y / p2.p);
-		if (y <= y1 && y >= y2){
+		if (y < y1 && y > y2){
 			if (x == static_cast<int> (p1.x / p1.p))
 				return p1.z / p1.p;
-
 			if (x == static_cast<int>(p2.x / p1.p))
 				return p2.z / p2.p;
-
 			double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
 			double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
 			double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
 			double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-			double z = (p1.z / p1.p)*d1 / d + (1 - d1 / d)*(p2.z / p2.p);
+			double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
+			//double z = LinePointDepth(p1, p2, x, y);
 			if (x == static_cast<int>(x1))
 				return z;
 			points.push_back(vec4(x1, y, z, 1));
@@ -610,41 +613,43 @@ static double Depth(std::vector<vec4> q, int x, int y){
 
 	for (i = 0; i < points.size(); i++){
 		p1 = points[i];
-		if (i + 1 == points.size())
-			p2 = points[0];
-		else p2 = points[i + 1];
+		p2 = points[(i + 1) % points.size()];
 		double x1 = max(p1.x, p2.x);
 		double x2 = min(p1.x, p2.x);
-		if (x <= x1 && x >= x2){
-			double d1 = p1.x - x;
+		if (x1 == x2) return p1.z / p1.p;
+		if (x < static_cast<int>(x1) && x > static_cast<int>(x2)){
+			double d1 = p1.x -x;
 			double d = p1.x - p2.x;
-			double z = p1.z*(d1 / d) + (1 - (d1 / d))*p2.z;
+			double z = p1.z*(1- (d1 / d)) + (d1 / d)*p2.z;
 			return z;
 		}
 	}
-	return NULL;
+
+	return p2.z; //cheating 
 }
 
 static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
 
-	/*double z_delta = p1.z / p1.p - p2.z / p2.p;
-	double y_delta = p1.y / p1.p - p2.y / p2.p;
-	double x_delta = p1.x / p1.p - p2.x / p2.p;*/
+	//double z_delta = p1.z / p1.p - p2.z / p2.p;
+	//double y_delta = p1.y / p1.p - p2.y / p2.p;
+	//double x_delta = p1.x / p1.p - p2.x / p2.p;
+
+	//if (y_delta != 0) // line does not change in y
+	//return z_delta * (y - p2.y / p2.p) / y_delta + p2.z / p2.p;
+	//else if (x_delta != 0) // line does not change in x
+	//return z_delta * (x - p2.x / p2.p) / x_delta + p2.z / p2.p;
+	//else // line does not change in y and x, meaning we only draw p1 on screen
+	//return p1.z/ p1.p;
 
 	double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
 	double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
 	double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
 	double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-	double z = (p1.z / p1.p)*(d1 / d) + (1 - d1 / d)*(p2.z / p2.p);
+	double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
 
 	return z;
 	
-	/*if (y_delta != 0) // line does not change in y
-		return z_delta * (y - p2.y / p2.p) / y_delta + p2.z / p2.p;
-	else if (x_delta != 0) // line does not change in x
-		return z_delta * (x - p2.x / p2.p) / x_delta + p2.z / p2.p;
-	else // line does not change in y and x, meaning we only draw p1 on screen
-		return p1.z/ p1.p;*/
+	
 }
 
 void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y){
@@ -654,9 +659,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 		&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 		(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 		return;
-	bool xy = false;
-	if (x_y)
-		xy = true;
+	int xy = (x_y != NULL) ? 1 : 0;
 	// algorithm vars
 	int x1, x2, y1, y2, dx, dy, d;
 	int north_er, north_west_er, west_er, south_west_er, south_er, south_east_er, east_er, north_east_er;
@@ -700,12 +703,13 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 	double z;
 
-	if (xy) (*x_y)[y].push_back(x);
-	else if (IN_RANGE(x, y) && !xy){
+	if (xy) 
+		(*x_y)[y].push_back(x);
+	else if (IN_RANGE(x, y)){
 		z = LinePointDepth(p1, p2, x, y);
-		if (z > z_arr[y + m_WindowWidth * x]){
-			arr[y + m_WindowWidth * x] = color;
-			z_arr[y + m_WindowWidth * x] = z;
+		if (z < z_arr[SCREEN_SPACE(x, y)]){
+			arr[SCREEN_SPACE(x, y)] = color;
+			z_arr[SCREEN_SPACE(x, y)] = z;
 		}		
 	}
 	// select the correct midpoint algorithm (direction and incline)
@@ -715,11 +719,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 		while (y < y2){
 			y = y + 1;
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y) && !xy){
+			else if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
-				if (z > z_arr[y + m_WindowWidth * x]){
-					arr[y + m_WindowWidth * x] = color;
-					z_arr[y + m_WindowWidth * x] = z;
+				if (z < z_arr[SCREEN_SPACE(x, y)]){					
+					arr[SCREEN_SPACE(x, y)] = color;
+					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
 		}
@@ -741,11 +745,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				y = y + 1;
 			}
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y) && !xy){
+			else if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
-				if (z > z_arr[y + m_WindowWidth * x]){
-					arr[y + m_WindowWidth * x] = color;
-					z_arr[y + m_WindowWidth * x] = z;
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
+					arr[SCREEN_SPACE(x, y)] = color;
+					z_arr[SCREEN_SPACE(x, y)] = z;
 				};
 			}
 		}
@@ -764,11 +768,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				y = y + 1;
 			}
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y) && !xy){
+			else if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
-				if (z > z_arr[y + m_WindowWidth * x]){
-					arr[y + m_WindowWidth * x] = color;
-					z_arr[y + m_WindowWidth * x] = z;
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
+					arr[SCREEN_SPACE(x, y)] = color;
+					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
 		}
@@ -789,9 +793,9 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				(*x_y)[y].push_back(x);
 			else if (IN_RANGE(x, y) && !xy){
 				z = LinePointDepth(p1, p2, x, y);
-				if (z > z_arr[y + m_WindowWidth * x]){
-					arr[y + m_WindowWidth * x] = color;
-					z_arr[y + m_WindowWidth * x] = z;
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
+					arr[SCREEN_SPACE(x, y)] = color;
+					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
 		}
@@ -809,11 +813,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				y = y - 1;
 			}
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y) && !xy){
+			else if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
-				if (z > z_arr[y + m_WindowWidth * x]){
-					arr[y + m_WindowWidth * x] = color;
-					z_arr[y + m_WindowWidth * x] = z;
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
+					arr[SCREEN_SPACE(x, y)] = color;
+					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
 
@@ -847,18 +851,31 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 		} */
 		DrawLine(z_arr, arr, p1, p2, color, &x_y);
 	}
+	vec4 point_in_plane;
+	point_in_plane = p.points[0] * cur_transform;
+
+	/*double A = normal.x;
+	double B = normal.y;
+	double C = normal.z;
+	double D = -(A * point_in_plane.x + B * point_in_plane.y + C * point_in_plane.z);*/
 
 	for (auto iter = x_y.begin(); iter != x_y.end(); ++iter){
 			std::sort(iter->second.begin(), iter->second.end());
 			bool draw = true;
 			int y = iter->first;
-			for (unsigned int i = 0; i < iter->second.size() - 1; i++){
-				for (int x = iter->second[i]; x < iter->second[i + 1]; x++){
+			for (unsigned int i = 0; i <= iter->second.size() - 1; i++){
+				for (int x = iter->second[i]; x <= iter->second[i + 1]; x++){
 					if (IN_RANGE(x, y)){
 						double z = Depth(q, x, y);
-						if (z > z_arr[y + m_WindowWidth * x]){
-							arr[y + m_WindowWidth * x] = ApplyLight(color, normal, vec4(x, y, z, 1));
-							z_arr[y + m_WindowWidth * x] = z;
+						/*if (!z){
+							std::string str(("Z is NULL - x,y" + std::to_string(x) + "\n" + +"," + std::to_string(y)));
+							CString notice(str.c_str());
+							this->MessageBox(notice);
+						}*/
+						//double z = (C != 0) ? -(A * x + B * y + D) / C : point_in_plane.z;
+						if (z && z < z_arr[SCREEN_SPACE(x, y)]){
+							arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+							z_arr[SCREEN_SPACE(x, y)] = z;
 						}
 					}
 				}
@@ -929,7 +946,7 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 
 	// apply diffuse reflection
 	for (int l = LIGHT_ID_1; l < MAX_LIGHT; l++){
-		if (m_lights[l].enabled == true){
+		if (m_lights[l].enabled){
 			if (m_lights[l].type == LIGHT_TYPE_POINT){
 
 				len_light_dist = sqrt(pow(pos.x - m_lights[l].posX, 2.0) +
@@ -1019,7 +1036,7 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 void CCGWorkView::RenderScene() {
 
 	std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
-	std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, -std::numeric_limits<double>::infinity());
+	std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
 	vec4 p1, p2;
 	polygon cur_polygon;
 	mat4 cur_transform;
@@ -1056,7 +1073,8 @@ void CCGWorkView::RenderScene() {
 		/*for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
 			p1 = (models[m].points_list[pnt].p_a)* cur_transform;
 			p2 = (models[m].points_list[pnt].p_b)* cur_transform;
-			DrawLine(m_screen, p1, p2, models[m].color);
+
+			DrawLine(z_buffer, m_screen, p1, p2, models[m].color);
 		}*/
 		if (m_bound_box){
 			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
