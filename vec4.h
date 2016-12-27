@@ -11,6 +11,7 @@ public:
 	double z;
 	double p;
 	double& operator[](int indx);
+	vec4& operator=(vec4 l);
 };
 
 bool operator==(vec4 l, vec4 r);

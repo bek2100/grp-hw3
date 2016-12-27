@@ -360,7 +360,6 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				pp_2 = pp_1 + avr;
 				pp_2[3] = 1;
 				cur_line = line(pp_1, pp_2);
-				//cur_line = 
 				models.back().vertex_normals_list_polygons.push_back(cur_line);
 			}
 		}
