@@ -48,6 +48,9 @@
 #define IDC_EDIT_MODEL_LIST             1048
 #define IDC_BUTTON4                     1049
 #define IDC_BUTTON5                     1050
+#define IDC_AMBIENT_MOD                 1051
+#define IDC_SPECULAR_MOD                1052
+#define IDC_DIFFUSE_MOD                 1053
 #define ID_FILE_LOAD                    32771
 #define ID_VIEW_ORTHOGRAPHIC            32772
 #define ID_VIEW_PERSPECTIVE             32773
@@ -88,7 +91,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        143
 #define _APS_NEXT_COMMAND_VALUE         32821
-#define _APS_NEXT_CONTROL_VALUE         1051
+#define _APS_NEXT_CONTROL_VALUE         1052
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

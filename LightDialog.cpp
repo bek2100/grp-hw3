@@ -42,6 +42,14 @@ void CLightDialog::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_LIGHT_DIR_Y, m_lights[m_currentLightIdx].dirY);
 	DDX_Text(pDX, IDC_LIGHT_DIR_Z, m_lights[m_currentLightIdx].dirZ);
 
+	//update lighting constants
+	DDX_Text(pDX, IDC_AMBIENT_MOD, m_ambient_mod);
+	DDV_MinMaxDouble(pDX, m_ambient_mod, 0, 1);
+	DDX_Text(pDX, IDC_DIFFUSE_MOD, m_diffuse_mod);
+	DDV_MinMaxDouble(pDX, m_diffuse_mod, 0, 1);
+	DDX_Text(pDX, IDC_SPECULAR_MOD, m_specular_mod);
+	DDV_MinMaxDouble(pDX, m_specular_mod, 0, 1);
+
 	//NOTE:Add more dialog controls which are associated with the structure below this line		
 	//...
 
@@ -74,7 +82,6 @@ BEGIN_MESSAGE_MAP(CLightDialog, CDialog)
     ON_BN_CLICKED(IDC_RADIO_LIGHT8, &CLightDialog::OnBnClickedRadioLight)
 	ON_BN_CLICKED(IDC_LIGHT_ENABLED, &CLightDialog::OnBnClickedLightEnabled)
 	ON_CBN_SELCHANGE(IDC_LIGHT_TYPE, &CLightDialog::OnCbnSelchangeLightType)
-	ON_EN_CHANGE(IDC_LIGHT_DIR_X, &CLightDialog::OnEnChangeLightDirX)
 END_MESSAGE_MAP()
 
 void CLightDialog::SetDialogData( LightID id,const LightParams& light )
@@ -85,12 +92,19 @@ void CLightDialog::SetDialogData( LightID id,const LightParams& light )
 	m_lights[id]=light;
 }
 
+void CLightDialog::SetLightConstants(double ambient_mod, double diffuse_mod, double spcular_mod)
+{
+	m_ambient_mod = ambient_mod;
+	m_diffuse_mod = diffuse_mod;
+	m_specular_mod = spcular_mod;
+}
+
 LightParams CLightDialog::GetDialogData( LightID id )
 {
     if (id==LIGHT_ID_AMBIENT)
-	return m_ambiant;
+		return m_ambiant;
     else
-	return m_lights[id];
+		return m_lights[id];
 }
 // CLightDialog message handlers
 
@@ -129,15 +143,3 @@ void CLightDialog::OnCbnSelchangeLightType()
 	
 }
 
-
-
-
-void CLightDialog::OnEnChangeLightDirX()
-{
-	// TODO:  If this is a RICHEDIT control, the control will not
-	// send this notification unless you override the CDialog::OnInitDialog()
-	// function and call CRichEditCtrl().SetEventMask()
-	// with the ENM_CHANGE flag ORed into the mask.
-
-	// TODO:  Add your control notification handler code here
-}
