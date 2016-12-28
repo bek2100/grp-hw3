@@ -57,7 +57,7 @@ private:
 	
 
 	// our functions
-	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y = NULL);
+	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<int>>* x_y = NULL);
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
@@ -103,6 +103,9 @@ protected:
 	mat4 m_prespective_trans;
 	double m_presepctive_d;
 	double m_presepctive_alpha;
+	double m_ambient_k;
+	double m_diffuse_k;
+	double m_speculr_k;
 	std::vector<bool> active_modules;
 
 	int m_mouse_xpos;
