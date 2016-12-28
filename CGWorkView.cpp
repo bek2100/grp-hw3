@@ -153,6 +153,11 @@ CCGWorkView::CCGWorkView()
 
 	m_nLightShading = ID_LIGHT_SHADING_FLAT;
 
+	//init the coesffiecents of the lights
+	m_ambient_k = 0.3;
+	m_diffuse_k = 0.7;
+	m_speculr_k = 0.7;
+
 	m_lMaterialAmbient = 0.2;
 	m_lMaterialDiffuse = 0.8;
 	m_lMaterialSpecular = 1.0;
@@ -165,9 +170,9 @@ CCGWorkView::CCGWorkView()
 	//init the first light to be enabled
 	m_lights[LIGHT_ID_1].enabled = true;
 	m_lights[LIGHT_ID_1].type = LIGHT_TYPE_POINT;
-	m_lights[LIGHT_ID_1].posX = 4000;
-	m_lights[LIGHT_ID_1].posY = 4000;
-	m_lights[LIGHT_ID_1].posZ = 4000;
+	m_lights[LIGHT_ID_1].posX = -4000;
+	m_lights[LIGHT_ID_1].posY = -4000;
+	m_lights[LIGHT_ID_1].posZ = -04000;
 
 	m_ambientLight.colorR = 30;
 	m_ambientLight.colorG = 30;
@@ -375,7 +380,7 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 	int yPos = GET_Y_LPARAM(lparam);
 	
 	if (wparam == MK_RBUTTON){
-		std::string str(("X - " + std::to_string(yPos) + "\n" + "Y - " + std::to_string(xPos)));
+		std::string str(("X - " + std::to_string(xPos) + "\n" + "Y - " + std::to_string(yPos)));
 		CString notice(str.c_str());
 		this->MessageBox(notice);
 	}
@@ -630,29 +635,47 @@ static double Depth(std::vector<vec4> q, int x, int y){
 
 static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
 
-	//double z_delta = p1.z / p1.p - p2.z / p2.p;
-	//double y_delta = p1.y / p1.p - p2.y / p2.p;
-	//double x_delta = p1.x / p1.p - p2.x / p2.p;
+	//int p2_x = static_cast<int>(p2.x / p2.p);
+	//int p2_y = static_cast<int>(p2.y / p2.p);
+	//int p2_z = static_cast<int>(p2.z / p2.p);
 
-	//if (y_delta != 0) // line does not change in y
-	//return z_delta * (y - p2.y / p2.p) / y_delta + p2.z / p2.p;
-	//else if (x_delta != 0) // line does not change in x
-	//return z_delta * (x - p2.x / p2.p) / x_delta + p2.z / p2.p;
-	//else // line does not change in y and x, meaning we only draw p1 on screen
-	//return p1.z/ p1.p;
+	//int p1_x = static_cast<int>(p1.x / p1.p);
+	//int p1_y = static_cast<int>(p1.y / p1.p);
+	//int p1_z = static_cast<int>(p1.z / p1.p);
 
-	double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
-	double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
-	double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
-	double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-	double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
+	double p2_x = (p2.x / p2.p);
+	double p2_y = (p2.y / p2.p);
+	double p2_z = (p2.z / p2.p);
+
+	double p1_x = (p1.x / p1.p);
+	double p1_y = (p1.y / p1.p);
+	double p1_z = (p1.z / p1.p);
+
+
+	double z_delta = p1_z - p2_z;
+	double y_delta = p1_y - p2_y;
+	double x_delta = p1_x - p1_x;
+	double z;
+
+	if (y_delta != 0) // line does not change in y
+		z = (z_delta / y_delta) * (y - p2_y) + p2_z;
+	else if (x_delta != 0) // line does not change in x
+		z = (z_delta / x_delta) * (x - p2_x) + p2_z;
+	else // line does not change in y and x, meaning we only draw p1 on screen
+		z = max(p1_z, p2_z);
+
+	//double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
+	//double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
+	//double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
+	//double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
+	//double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
 
 	return z;
 	
 	
 }
 
-void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, std::unordered_map<int, std::vector<int>>* x_y){
+void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<int>>* x_y){
 
 	// if the line is beyond the screen space, dont bother drawing it
 	if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
@@ -705,10 +728,10 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 	if (xy) 
 		(*x_y)[y].push_back(x);
-	else if (IN_RANGE(x, y)){
+	if (IN_RANGE(x, y)){
 		z = LinePointDepth(p1, p2, x, y);
 		if (z < z_arr[SCREEN_SPACE(x, y)]){
-			arr[SCREEN_SPACE(x, y)] = color;
+			arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 			z_arr[SCREEN_SPACE(x, y)] = z;
 		}		
 	}
@@ -719,10 +742,10 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 		while (y < y2){
 			y = y + 1;
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y)){
+			if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){					
-					arr[SCREEN_SPACE(x, y)] = color;
+					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
@@ -745,10 +768,10 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				y = y + 1;
 			}
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y)){
+			if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = color;
+					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				};
 			}
@@ -768,10 +791,10 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				y = y + 1;
 			}
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y)){
+			if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = color;
+					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
@@ -794,7 +817,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 			else if (IN_RANGE(x, y) && !xy){
 				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = color;
+					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
@@ -813,10 +836,10 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				y = y - 1;
 			}
 			if (xy) (*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y)){
+			if (IN_RANGE(x, y)){
 				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = color;
+					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
@@ -828,60 +851,55 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
 	vec4 p1, p2;
-	int min_y = m_WindowWidth - 1;
-	int max_y = 1;
-	vec4 normal = p.Normal_Val(true);
-	normal.p = 1;
-	normal = normal * cur_transform; // TODO use given or calculated normal AND consider prespective
-	normal = normal / normal.p;
+
+	// create the normal of this polygon
+	line normal_line = p.Normal(given_polygon_normal);
+	vec4 normal = normal_line.p_a * cur_transform - normal_line.p_b * cur_transform;
+	normal = normal; // TODO use given or calculated normal AND consider prespective
+	normal = normal / normal_line.p_a.p;
+	double max_z = -std::numeric_limits<double>::infinity();
+	// "draw" the lines on screen and save where the x's of each y row are
 	std::vector<vec4> q;
-	std::unordered_map<int, std::vector<int>> x_y = std::unordered_map<int, std::vector<int>>();
+	std::unordered_map<int, std::vector<int>> x_y;
 	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
 		p1 = p.points[pnt] * cur_transform;
 		if (pnt + 1 == p.points.size()) p2 = p.points[0] * cur_transform;
 		else p2 = p.points[pnt + 1] * cur_transform;
 		q.push_back(p1);
-		/*if (p1.y / p1.p < p2.y / p2.p){
-			min_y = static_cast<int> (p1.y / p1.p < min_y ? p1.y / p1.p : min_y);
-			max_y = static_cast<int> (p2.y / p2.p > max_y ? p2.y / p2.p : max_y);
-		}
-		else{
-			min_y = static_cast<int>(p2.y / p2.p < min_y ? p2.y / p2.p : min_y);
-			max_y = static_cast<int>(p1.y / p1.p > max_y ? p1.y / p1.p : max_y);
-		} */
-		DrawLine(z_arr, arr, p1, p2, color, &x_y);
+		max_z = ((p1.z / p1.p) > max_z) ? p1.z / p1.p : max_z;
+		max_z = ((p2.z / p2.p) > max_z) ? p1.z / p1.p : max_z;
+
+		DrawLine(z_arr, arr, p1, p2, color, normal, &x_y);
 	}
+
+	// caldualte the noraml's eqaution
 	vec4 point_in_plane;
 	point_in_plane = p.points[0] * cur_transform;
-
-	/*double A = normal.x;
+	point_in_plane = point_in_plane / point_in_plane.p;
+	double A = normal.x;
 	double B = normal.y;
 	double C = normal.z;
-	double D = -(A * point_in_plane.x + B * point_in_plane.y + C * point_in_plane.z);*/
+	double D = -(A * point_in_plane.x + B * point_in_plane.y + C * point_in_plane.z);
 
+	// z_buffer drawing
+	double z;
 	for (auto iter = x_y.begin(); iter != x_y.end(); ++iter){
-			std::sort(iter->second.begin(), iter->second.end());
-			bool draw = true;
-			int y = iter->first;
-			for (unsigned int i = 0; i <= iter->second.size() - 1; i++){
-				for (int x = iter->second[i]; x <= iter->second[i + 1]; x++){
-					if (IN_RANGE(x, y)){
-						double z = Depth(q, x, y);
-						/*if (!z){
-							std::string str(("Z is NULL - x,y" + std::to_string(x) + "\n" + +"," + std::to_string(y)));
-							CString notice(str.c_str());
-							this->MessageBox(notice);
-						}*/
-						//double z = (C != 0) ? -(A * x + B * y + D) / C : point_in_plane.z;
-						if (z && z < z_arr[SCREEN_SPACE(x, y)]){
-							arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
-							z_arr[SCREEN_SPACE(x, y)] = z;
-						}
+		std::sort(iter->second.begin(), iter->second.end());
+		int y = iter->first;
+		for (unsigned int i = 0; i <= iter->second.size() - 2; i++){
+			// draw only the internal polygon
+			for (int x = iter->second[i]; x <= iter->second[i + 1]; x++){
+				if (IN_RANGE(x, y)){
+					z = (C != 0) ? -(A * (double)x + B * (double)y + D) / C : max_z;
+					double z_arr_val = z_arr[SCREEN_SPACE(x, y)];
+					if (z < z_arr[SCREEN_SPACE(x, y)]){
+						COLORREF c = ApplyLight(color, normal, vec4(x, y, z, 1));
+						arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+						z_arr[SCREEN_SPACE(x, y)] = z;
 					}
 				}
 			}
-			if (draw) draw = false;
-			else draw = true;
+		}
 	}
 }
 
@@ -909,23 +927,25 @@ void CCGWorkView::DrawBoundBox(double *z_arr, COLORREF *arr, model &model, mat4 
 	vec4 xmax_ymax_zmin(maxx, maxy, minz, 1.0);
 	vec4 xmax_ymax_zmax(maxx, maxy, maxz, 1.0);
 
+	vec4 psudo_normal = vec4(0, 0, 0, 1);
+
 	// zmin rectangle first
-	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymax_zmin * cur_transform, color);
-	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmax_ymax_zmin * cur_transform, color);
-	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymin_zmin * cur_transform, color);
-	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmin_ymin_zmin * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymax_zmin * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmax_ymax_zmin * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymin_zmin * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmin_ymin_zmin * cur_transform, color, psudo_normal);
 
 	// zmax rectangle second
-	DrawLine(z_arr, arr, xmin_ymin_zmax * cur_transform, xmin_ymax_zmax * cur_transform, color);
-	DrawLine(z_arr, arr, xmin_ymax_zmax * cur_transform, xmax_ymax_zmax * cur_transform, color);
-	DrawLine(z_arr, arr, xmax_ymax_zmax * cur_transform, xmax_ymin_zmax * cur_transform, color);
-	DrawLine(z_arr, arr, xmax_ymin_zmax * cur_transform, xmin_ymin_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymin_zmax * cur_transform, xmin_ymax_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymax_zmax * cur_transform, xmax_ymax_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymax_zmax * cur_transform, xmax_ymin_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymin_zmax * cur_transform, xmin_ymin_zmax * cur_transform, color, psudo_normal);
 
 	// connect the two rectangles next
-	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymin_zmax * cur_transform, color);
-	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmin_ymax_zmax * cur_transform, color);
-	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmax_ymin_zmax * cur_transform, color);
-	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymax_zmax * cur_transform, color);
+	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymin_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmin_ymax_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmax_ymin_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymax_zmax * cur_transform, color, psudo_normal);
 }
 
 COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
@@ -933,16 +953,20 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 	int inentisity = 0;
 
 	// apply amient light
-	double red_inentsity = ((double)m_ambientLight.colorR / 255) * GetRValue(in_color);
-	double grn_inentsity = ((double)m_ambientLight.colorG / 255) * GetGValue(in_color);
-	double blu_inentsity = ((double)m_ambientLight.colorB / 255) * GetBValue(in_color);
+	double red_inentsity = m_ambient_k * ((double)m_ambientLight.colorR / 255) * GetRValue(in_color);
+	double grn_inentsity = m_ambient_k * ((double)m_ambientLight.colorG / 255) * GetGValue(in_color);
+	double blu_inentsity = m_ambient_k * ((double)m_ambientLight.colorB / 255) * GetBValue(in_color);
 
 
 	double cos_teta = 1;
 	double len_light_dist = 1;
 	double len_normal = sqrt(pow(normal.x, 2.0) +
 		pow(normal.y, 2.0) +
-		pow(normal.y, 2.0));
+		pow(normal.z, 2.0));
+
+	// when you don't want light effect, tner a o length normal
+	if (len_normal == 0)
+		return 0;
 
 	// apply diffuse reflection
 	for (int l = LIGHT_ID_1; l < MAX_LIGHT; l++){
@@ -958,18 +982,18 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 					(pos.z - m_lights[l].posZ) * (normal.z)) /
 					(len_normal * len_light_dist);
 
-				if (cos_teta < 0){
-					red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * -cos_teta;
-					grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * -cos_teta;
-					blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * -cos_teta;
-				}
-				else{
-					red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * cos_teta;
-					grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * cos_teta;
-					blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * cos_teta;
-				}
+				//diffuse light from source
+				// when the normal is facing the light source, add the calculation
+				// when the normal is not facing the light source, ignore it
+				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+
+				//specular light from source
+				//...
 			}
-			if (m_lights[l].type == LIGHT_TYPE_DIRECTIONAL){
+			else if (m_lights[l].type == LIGHT_TYPE_DIRECTIONAL){
+				// the "light distance" here is the size of the direction
 				len_light_dist = sqrt(pow(m_lights[l].dirX, 2.0) +
 					pow(m_lights[l].dirY, 2.0) +
 					pow(m_lights[l].dirZ, 2.0));
@@ -979,50 +1003,49 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 					(m_lights[l].dirZ) * (normal.z)) /
 					(len_normal * len_light_dist);
 
-				if (cos_teta < 0){
-					red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * -cos_teta;
-					grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * -cos_teta;
-					blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * -cos_teta;
-				}
-				else{
-					red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * cos_teta;
-					grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * cos_teta;
-					blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * cos_teta;
-				}
+				//diffuse light from source
+				// when the normal is facing the light source, add the calculation
+				// when the normal is not facing the light source, ignore it
+				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+
+				//specular light from source
+				//...
 			}
-			if (m_lights[l].type == LIGHT_TYPE_SPOT){
-			
-				len_light_dist = pow(m_lights[l].dirX - m_lights[l].posX, 2.0) +
-					pow(m_lights[l].dirY - m_lights[l].posY, 2.0) +
-					pow(m_lights[l].dirZ - m_lights[l].posZ, 2.0);
+			else if (m_lights[l].type == LIGHT_TYPE_SPOT){
+				// not needed for hw2
+				//len_light_dist = pow(m_lights[l].dirX - m_lights[l].posX, 2.0) +
+				//	pow(m_lights[l].dirY - m_lights[l].posY, 2.0) +
+				//	pow(m_lights[l].dirZ - m_lights[l].posZ, 2.0);
 
-				double point_dis = sqrt(pow(pos.x - m_lights[l].posX, 2)
-					+ pow(pos.y - m_lights[l].posY, 2)
-					+ pow(pos.z - m_lights[l].posZ, 2));
+				//double point_dis = sqrt(pow(pos.x - m_lights[l].posX, 2)
+				//	+ pow(pos.y - m_lights[l].posY, 2)
+				//	+ pow(pos.z - m_lights[l].posZ, 2));
 
-				cos_teta = ((pos.x - m_lights[l].posX) * (normal.x) +
-					(pos.y - m_lights[l].posY) * (normal.y) +
-					(pos.z - m_lights[l].posZ) * (normal.z)) /
-					(len_normal * len_light_dist);
+				//cos_teta = ((pos.x - m_lights[l].posX) * (normal.x) +
+				//	(pos.y - m_lights[l].posY) * (normal.y) +
+				//	(pos.z - m_lights[l].posZ) * (normal.z)) /
+				//	(len_normal * len_light_dist);
 
-				double cos_dis_teta = ((pos.x - m_lights[l].posX) * (m_lights[l].dirX - m_lights[l].posX) +
-					(pos.y - m_lights[l].posY) * (m_lights[l].dirY - m_lights[l].posY) +
-					(pos.z - m_lights[l].posZ) * (m_lights[l].dirZ - m_lights[l].posZ)) /
-					(point_dis * len_light_dist);
+				//double cos_dis_teta = ((pos.x - m_lights[l].posX) * (m_lights[l].dirX - m_lights[l].posX) +
+				//	(pos.y - m_lights[l].posY) * (m_lights[l].dirY - m_lights[l].posY) +
+				//	(pos.z - m_lights[l].posZ) * (m_lights[l].dirZ - m_lights[l].posZ)) /
+				//	(point_dis * len_light_dist);
 
 
-				if (cos_dis_teta <= 1 && cos_dis_teta >= -1){
-					if ((cos_teta < 0 && cos_dis_teta > 0) || (cos_teta > 0 && cos_dis_teta < 0)){
-						red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color)*-cos_teta * cos_dis_teta;
-						grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color)*-cos_teta * cos_dis_teta;
-						blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color)*-cos_teta * cos_dis_teta;
-					}
-					else{
-						red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color) *cos_teta * cos_dis_teta;
-						grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color) *cos_teta * cos_dis_teta;
-						blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color) *cos_teta * cos_dis_teta;
-					}
-				}
+				//if (cos_dis_teta <= 1 && cos_dis_teta >= -1){
+				//	if ((cos_teta < 0 && cos_dis_teta > 0) || (cos_teta > 0 && cos_dis_teta < 0)){
+				//		red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color)*-cos_teta * cos_dis_teta;
+				//		grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color)*-cos_teta * cos_dis_teta;
+				//		blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color)*-cos_teta * cos_dis_teta;
+				//	}
+				//	else{
+				//		red_inentsity += ((double)m_lights[l].colorR / 255) * GetRValue(in_color) *cos_teta * cos_dis_teta;
+				//		grn_inentsity += ((double)m_lights[l].colorG / 255) * GetGValue(in_color) *cos_teta * cos_dis_teta;
+				//		blu_inentsity += ((double)m_lights[l].colorB / 255) * GetBValue(in_color) *cos_teta * cos_dis_teta;
+				//	}
+				//}
 			}
 		}
 	}
@@ -1034,7 +1057,7 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 }
 
 void CCGWorkView::RenderScene() {
-
+	vec4 psudo_normal = vec4(0, 0, 0, 1);
 	std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
 	std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
 	vec4 p1, p2;
@@ -1058,7 +1081,7 @@ void CCGWorkView::RenderScene() {
 				cur_polygon = models[m].polygons[count];
 				p1 = cur_polygon.Normal(given_polygon_normal).p_a * cur_transform;
 				p2 = cur_polygon.Normal(given_polygon_normal).p_b * cur_transform;
-				DrawLine(z_buffer, m_screen, p1, p2, m_polygon_norm_color);
+				DrawLine(z_buffer, m_screen, p1, p2, m_polygon_norm_color, psudo_normal);
 			}
 		}
 
@@ -1067,7 +1090,7 @@ void CCGWorkView::RenderScene() {
 			for (unsigned int count = 0; count < vertex_normal.size(); count++){
 				p1 = vertex_normal[count].p_a * cur_transform;
 				p2 = vertex_normal[count].p_b * cur_transform;
-				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color);
+				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color, psudo_normal);
 			}
 		}
 		/*for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
@@ -1377,6 +1400,7 @@ void CCGWorkView::OnLightConstants()
 		dlg.SetDialogData((LightID)id, m_lights[id]);
 	}
 	dlg.SetDialogData(LIGHT_ID_AMBIENT, m_ambientLight);
+	dlg.SetLightConstants(m_ambient_k, m_diffuse_k, m_speculr_k);
 
 	if (dlg.DoModal() == IDOK)
 	{
@@ -1385,6 +1409,10 @@ void CCGWorkView::OnLightConstants()
 			m_lights[id] = dlg.GetDialogData((LightID)id);
 		}
 		m_ambientLight = dlg.GetDialogData(LIGHT_ID_AMBIENT);
+
+		m_ambient_k = dlg.m_ambient_mod;
+		m_diffuse_k = dlg.m_diffuse_mod;
+		m_speculr_k = dlg.m_specular_mod;
 	}
 	Invalidate();
 }
