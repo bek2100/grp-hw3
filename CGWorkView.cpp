@@ -100,6 +100,12 @@ BEGIN_MESSAGE_MAP(CCGWorkView, CView)
 	ON_UPDATE_COMMAND_UI(ID_VERTEX_GIVEN, &CCGWorkView::OnUpdateVertexGiven)
 	ON_COMMAND(ID_VERTEX_CALCULATED, &CCGWorkView::OnVertexCalculated)
 	ON_UPDATE_COMMAND_UI(ID_VERTEX_CALCULATED, &CCGWorkView::OnUpdateVertexCalculated)
+	ON_COMMAND(ID_VIEW_WIREFRAME, &CCGWorkView::OnViewWireframe)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_WIREFRAME, &CCGWorkView::OnUpdateViewWireframe)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_SOLID, &CCGWorkView::OnUpdateViewSolid)
+	ON_COMMAND(ID_VIEW_SOLID, &CCGWorkView::OnViewSolid)
+	ON_COMMAND(ID_VIEW_Z, &CCGWorkView::OnViewZ)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_Z, &CCGWorkView::OnUpdateViewZ)
 END_MESSAGE_MAP()
 
 
@@ -135,15 +141,13 @@ CCGWorkView::CCGWorkView()
 	m_tarnsform[2][2] = 1;
 	m_tarnsform[3][3] = 1;
 
-	m_presepctive_d = 1;
-	m_presepctive_alpha = 0.3;
+	m_presepctive_d = 2;
 
-	m_prespective_trans[0][0] = 1;
-	m_prespective_trans[1][1] = 1;
-	m_prespective_trans[2][2] = 1;
-	m_prespective_trans[2][3] = 1 / m_presepctive_d;
-
-
+	// initilize the cameras' position and direction in the view space
+	// used later
+	m_camera_pos = vec4(0, 0, -1, 1);
+	m_camera_at = vec4(0, 0, 0, 1);
+	m_camera_up = vec4(0, -1, 0, 1);
 
 	m_color_wireframe = RGB(0, 0, 0);
 	m_background_color = RGB(255, 255, 255);
@@ -152,7 +156,7 @@ CCGWorkView::CCGWorkView()
 	m_vertex_norm_color = RGB(0, 0, 0);
 
 	m_nLightShading = ID_LIGHT_SHADING_FLAT;
-
+	render_type = ID_VIEW_SOLID;
 	//init the coesffiecents of the lights
 	m_ambient_k = 0.3;
 	m_diffuse_k = 0.7;
@@ -318,14 +322,16 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	mat4 screen_space_scale;
 	mat4 screen_space_translate;
 
-
+	// set the screen scaling transformation
 	int min_axis = min(m_WindowHeight, m_WindowWidth);
-
 	screen_space_scale[0][0] = (double)min_axis*0.6;
 	screen_space_scale[1][1] = (double)min_axis*0.6;
 	screen_space_scale[2][2] = (double)min_axis*0.6;
 	screen_space_scale[3][3] = 1;
 
+	m_screen_space_scale = screen_space_scale;
+
+	// set the screen translation transformation
 	screen_space_translate[0][0] = 1;
 	screen_space_translate[3][0] = 0.5 * m_WindowWidth;
 
@@ -333,7 +339,24 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	screen_space_translate[3][1] = 0.5 * m_WindowHeight;
 
 	screen_space_translate[2][2] = 1;
+
 	screen_space_translate[3][3] = 1;
+
+	m_screen_space_translate = screen_space_translate;
+
+
+	// set the screens prespective transformation
+	mat4 reset;
+	m_prespective_trans = reset;
+
+	double screen_space_d = m_presepctive_d * (double)min_axis*0.6;
+	double screen_space_alpha = 0.6 * screen_space_d;
+
+	m_prespective_trans[0][0] = 1;
+	m_prespective_trans[1][1] = 1;
+	m_prespective_trans[2][2] = screen_space_d / (screen_space_d - screen_space_alpha);
+	m_prespective_trans[2][3] = 1 / screen_space_d;
+	m_prespective_trans[3][2] = -screen_space_alpha * screen_space_d / (screen_space_d - screen_space_alpha);
 
 	m_screen_space_trans = screen_space_scale * screen_space_translate;
 
@@ -370,9 +393,6 @@ void CCGWorkView::OnDestroy()
 
 /////////////////////////////////////////////////////////////////////////////
 // User Defined Functions
-bool CCGWorkView::InRange(int x, int y, int width, int height){
-	return (0 <= x && x < height && 0 <= y && y < width);
-};
 
 bool past_pressed;
 LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
@@ -411,23 +431,23 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 			if (m_nAxis == ID_AXIS_X){
 				temp_transform[0][0] = 1;
 
-				temp_transform[1][1] = cosx;
-				temp_transform[1][2] = -sinx;
+				temp_transform[1][1] = cosy;
+				temp_transform[1][2] = -siny;
 
-				temp_transform[2][1] = sinx;
-				temp_transform[2][2] = cosx;
+				temp_transform[2][1] = siny;
+				temp_transform[2][2] = cosy;
 
 				temp_transform[3][3] = 1;
 
 			}
 			if (m_nAxis == ID_AXIS_Y){
-				temp_transform[0][0] = cosy;
-				temp_transform[0][2] = -siny;
+				temp_transform[0][0] = cosx;
+				temp_transform[0][2] = -sinx;
 
 				temp_transform[1][1] = 1;
 
-				temp_transform[2][0] = siny;
-				temp_transform[2][2] = cosy;
+				temp_transform[2][0] = sinx;
+				temp_transform[2][2] = cosx;
 
 				temp_transform[3][3] = 1;
 			}
@@ -445,21 +465,21 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 			if (m_nAxis == ID_AXIS_XY){
 				temp_transform[0][0] = 1;
 
-				temp_transform[1][1] = cosx;
-				temp_transform[1][2] = sinx;
+				temp_transform[1][1] = cosy;
+				temp_transform[1][2] = siny;
 
-				temp_transform[2][1] = -sinx;
-				temp_transform[2][2] = cosx;
+				temp_transform[2][1] = -siny;
+				temp_transform[2][2] = cosy;
 
 				temp_transform[3][3] = 1;
 
-				temp_transform_xy[0][0] = cosy;
-				temp_transform_xy[0][2] = siny;
+				temp_transform_xy[0][0] = cosx;
+				temp_transform_xy[0][2] = sinx;
 
 				temp_transform_xy[1][1] = 1;
 
-				temp_transform_xy[2][0] = -siny;
-				temp_transform_xy[2][2] = cosy;
+				temp_transform_xy[2][0] = -sinx;
+				temp_transform_xy[2][2] = cosx;
 
 				temp_transform_xy[3][3] = 1;
 
@@ -635,26 +655,17 @@ static double Depth(std::vector<vec4> q, int x, int y){
 
 static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
 
-	//int p2_x = static_cast<int>(p2.x / p2.p);
-	//int p2_y = static_cast<int>(p2.y / p2.p);
-	//int p2_z = static_cast<int>(p2.z / p2.p);
-
-	//int p1_x = static_cast<int>(p1.x / p1.p);
-	//int p1_y = static_cast<int>(p1.y / p1.p);
-	//int p1_z = static_cast<int>(p1.z / p1.p);
-
-	double p2_x = (p2.x / p2.p);
-	double p2_y = (p2.y / p2.p);
+	double p2_x = static_cast<int>(p2.x / p2.p);
+	double p2_y = static_cast<int>(p2.y / p2.p);
 	double p2_z = (p2.z / p2.p);
 
-	double p1_x = (p1.x / p1.p);
-	double p1_y = (p1.y / p1.p);
+	double p1_x = static_cast<int>(p1.x / p1.p);
+	double p1_y = static_cast<int>(p1.y / p1.p);
 	double p1_z = (p1.z / p1.p);
-
-
+ 
 	double z_delta = p1_z - p2_z;
 	double y_delta = p1_y - p2_y;
-	double x_delta = p1_x - p1_x;
+	double x_delta = p1_x - p2_x;
 	double z;
 
 	if (y_delta != 0) // line does not change in y
@@ -672,17 +683,16 @@ static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
 
 	return z;
 	
-	
 }
 
-void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<int>>* x_y){
+void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<x_z_point>>* x_y){
 
 	// if the line is beyond the screen space, dont bother drawing it
 	if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
 		&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 		(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 		return;
-	int xy = (x_y != NULL) ? 1 : 0;
+	int xy = (x_y != NULL);
 	// algorithm vars
 	int x1, x2, y1, y2, dx, dy, d;
 	int north_er, north_west_er, west_er, south_west_er, south_er, south_east_er, east_er, north_east_er;
@@ -695,6 +705,8 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 	double p2_x = p2.x / p2.p;
 	double p1_y = p1.y / p1.p;
 	double p2_y = p2.y / p2.p;
+	double p1_z = p1.z / p1.p;
+	double p2_z = p2.z / p2.p;
 
 	x1 = static_cast<int>(min(p1_x, p2_x));
 	x2 = static_cast<int>(max(p1_x, p2_x));
@@ -725,11 +737,15 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 	south_east_er = 2 * dx + 2 * dy;
 
 	double z;
+	x_z_point xz_point;
 
-	if (xy) 
-		(*x_y)[y].push_back(x);
+	z = LinePointDepth(p1, p2, x, y);
+	if (xy) {
+		xz_point.x = x;
+		xz_point.z = z;
+		(*x_y)[y].push_back(xz_point);
+	}
 	if (IN_RANGE(x, y)){
-		z = LinePointDepth(p1, p2, x, y);
 		if (z < z_arr[SCREEN_SPACE(x, y)]){
 			arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 			z_arr[SCREEN_SPACE(x, y)] = z;
@@ -741,10 +757,14 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 		while (y < y2){
 			y = y + 1;
-			if (xy) (*x_y)[y].push_back(x);
+			z = LinePointDepth(p1, p2, x, y);
+			if (xy) {
+				xz_point.x = x;
+				xz_point.z = z;
+				(*x_y)[y].push_back(xz_point);
+			}
 			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
-				if (z < z_arr[SCREEN_SPACE(x, y)]){					
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
@@ -767,13 +787,17 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y + 1;
 			}
-			if (xy) (*x_y)[y].push_back(x);
+			z = LinePointDepth(p1, p2, x, y);
+			if (xy) {
+				xz_point.x = x;
+				xz_point.z = z;
+				(*x_y)[y].push_back(xz_point);
+			}
 			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
-				};
+				}
 			}
 		}
 	}
@@ -790,9 +814,13 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y + 1;
 			}
-			if (xy) (*x_y)[y].push_back(x);
+			z = LinePointDepth(p1, p2, x, y);
+			if (xy) {
+				xz_point.x = x;
+				xz_point.z = z;
+				(*x_y)[y].push_back(xz_point);
+			}
 			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
@@ -812,10 +840,13 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y - 1;
 			}
-			if (xy && incline != 0) // when drawn, you skip a point between 2 xs with the same y;
-				(*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y) && !xy){
-				z = LinePointDepth(p1, p2, x, y);
+			z = LinePointDepth(p1, p2, x, y);
+			if (xy && incline != 0) {
+				xz_point.x = x;
+				xz_point.z = z;
+				(*x_y)[y].push_back(xz_point);
+			}
+			if (IN_RANGE(x, y)){
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
@@ -835,67 +866,74 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y - 1;
 			}
-			if (xy) (*x_y)[y].push_back(x);
+			z = LinePointDepth(p1, p2, x, y);
+			if (xy) {
+				xz_point.x = x;
+				xz_point.z = z;
+				(*x_y)[y].push_back(xz_point);
+			}
 			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
 					z_arr[SCREEN_SPACE(x, y)] = z;
 				}
 			}
-
 		}
 	}
 	return;
 }
 
-void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
+void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color){
 	vec4 p1, p2;
+	//std::vector<vec4> q;
+	std::unordered_map<int, std::vector<x_z_point>> x_y;
 
+	////////////////////////////////////////////
 	// create the normal of this polygon
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	line normal_line = p.Normal(given_polygon_normal);
-	vec4 normal = normal_line.p_a * cur_transform - normal_line.p_b * cur_transform;
-	normal = normal; // TODO use given or calculated normal AND consider prespective
-	normal = normal / normal_line.p_a.p;
-	double max_z = -std::numeric_limits<double>::infinity();
+	vec4 normal_pa = normal_line.p_a * cur_transform;
+	vec4 normal_pb = normal_line.p_b * cur_transform;
+	vec4 normal = (normal_pa / normal_pa.p) - (normal_pb / normal_pb.p);
+
+	////////////////////////////////////////////
 	// "draw" the lines on screen and save where the x's of each y row are
-	std::vector<vec4> q;
-	std::unordered_map<int, std::vector<int>> x_y;
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
 		p1 = p.points[pnt] * cur_transform;
 		if (pnt + 1 == p.points.size()) p2 = p.points[0] * cur_transform;
 		else p2 = p.points[pnt + 1] * cur_transform;
-		q.push_back(p1);
-		max_z = ((p1.z / p1.p) > max_z) ? p1.z / p1.p : max_z;
-		max_z = ((p2.z / p2.p) > max_z) ? p1.z / p1.p : max_z;
+		//q.push_back(p1 / p1.p);
+
+		// skip polygons behind the camera
+		if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
+			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
+			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
+			return;
 
 		DrawLine(z_arr, arr, p1, p2, color, normal, &x_y);
 	}
-
-	// caldualte the noraml's eqaution
-	vec4 point_in_plane;
-	point_in_plane = p.points[0] * cur_transform;
-	point_in_plane = point_in_plane / point_in_plane.p;
-	double A = normal.x;
-	double B = normal.y;
-	double C = normal.z;
-	double D = -(A * point_in_plane.x + B * point_in_plane.y + C * point_in_plane.z);
-
+	
+	////////////////////////////////////////////
 	// z_buffer drawing
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	vec4 scan_p1, scan_p2;
+	double prev_z;
 	double z;
 	for (auto iter = x_y.begin(); iter != x_y.end(); ++iter){
 		std::sort(iter->second.begin(), iter->second.end());
 		int y = iter->first;
 		for (unsigned int i = 0; i <= iter->second.size() - 2; i++){
-			// draw only the internal polygon
-			for (int x = iter->second[i]; x <= iter->second[i + 1]; x++){
-				if (IN_RANGE(x, y)){
-					z = (C != 0) ? -(A * (double)x + B * (double)y + D) / C : max_z;
-					double z_arr_val = z_arr[SCREEN_SPACE(x, y)];
-					if (z < z_arr[SCREEN_SPACE(x, y)]){
-						COLORREF c = ApplyLight(color, normal, vec4(x, y, z, 1));
-						arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
-						z_arr[SCREEN_SPACE(x, y)] = z;
+			if (iter->second.size() > 1){
+				scan_p1 = vec4(iter->second[0].x, y, iter->second[0].z, 1);
+				scan_p2 = vec4(iter->second[iter->second.size() - 1].x, y, iter->second[iter->second.size() - 1].z, 1);
+				for (int x = static_cast<int>(iter->second[i].x); x <= iter->second[i + 1].x; x++){
+					if (IN_RANGE(x, y)){
+						z = LinePointDepth(scan_p1, scan_p2, x, y);
+						if (z < z_arr[SCREEN_SPACE(x, y)]){
+							arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+							z_arr[SCREEN_SPACE(x, y)] = z;
+						}
 					}
 				}
 			}
@@ -963,6 +1001,10 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 	double len_normal = sqrt(pow(normal.x, 2.0) +
 		pow(normal.y, 2.0) +
 		pow(normal.z, 2.0));
+
+	// draw z buffer depth using the blue channel
+	if (render_type == ID_VIEW_Z)
+		return RGB(static_cast<int>(255 * (pos.z / 4000)), 0, 0);
 
 	// when you don't want light effect, tner a o length normal
 	if (len_normal == 0)
@@ -1063,18 +1105,27 @@ void CCGWorkView::RenderScene() {
 	vec4 p1, p2;
 	polygon cur_polygon;
 	mat4 cur_transform;
+	mat4 no_presp_trans;
 	for (unsigned int m = 0; m < models.size(); m++){
-
+		no_presp_trans = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_screen_space_translate;
 		if (m_nView == ID_VIEW_ORTHOGRAPHIC){
-			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_trans;
+			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_screen_space_translate;
 		}
 		else if (m_nView == ID_VIEW_PERSPECTIVE){
-			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_prespective_trans * m_screen_space_trans;
+			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_prespective_trans * m_screen_space_translate;
 		}
 
-		for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
-			ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
-		}
+		if (render_type == ID_VIEW_SOLID || render_type == ID_VIEW_Z)
+			for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+				ScanConversion(z_buffer, m_screen, models[m].polygons[pol], no_presp_trans, cur_transform, models[m].color);
+			}
+		else if (render_type == ID_VIEW_WIREFRAME)
+			for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
+			p1 = (models[m].points_list[pnt].p_a)* cur_transform;
+			p2 = (models[m].points_list[pnt].p_b)* cur_transform;
+
+			DrawLine(z_buffer, m_screen, p1, p2, models[m].color, psudo_normal);
+			}
 
 		if (polygon_normal == ID_POLYGON_GIVEN || polygon_normal == ID_POLYGON_CALCULATED){
 			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
@@ -1093,36 +1144,31 @@ void CCGWorkView::RenderScene() {
 				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color, psudo_normal);
 			}
 		}
-		/*for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
-			p1 = (models[m].points_list[pnt].p_a)* cur_transform;
-			p2 = (models[m].points_list[pnt].p_b)* cur_transform;
 
-			DrawLine(z_buffer, m_screen, p1, p2, models[m].color);
-		}*/
 		if (m_bound_box){
 			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
 		}
 	}
 
 
-	m_map = CreateBitmap(m_WindowWidth,		 // width
-		m_WindowHeight,		 // height
-		1,			 // Color Planes, unfortanutelly don't know what is it actually. Let it be 1
-		8 * 4,		 // Size of memory for one pixel in bits (in win32 4 bytes = 4*8 bits)
-		(void*)m_screen); // pointer to array
+	m_map = CreateBitmap(m_WindowWidth,	// width
+		m_WindowHeight,					// height
+		1,								// Color Planes, unfortanutelly don't know what is it actually. Let it be 1
+		8 * 4,							// Size of memory for one pixel in bits (in win32 4 bytes = 4*8 bits)
+		(void*)m_screen);				// pointer to array
 
-	SelectObject(m_hDC, m_map); // Inserting picture into our temp HDC
+	SelectObject(m_hDC, m_map);			// Inserting picture into our temp HDC
 
 	// Copy image from temp HDC to window
-	BitBlt(m_pDC->GetSafeHdc(), // Destination
-		0,  // x and
-		0,  // y - upper-left corner of place, where we'd like to copy
-		m_WindowWidth, // width of the region
-		m_WindowHeight, // height
-		m_hDC, // source
-		0,   // x and
-		0,   // y of upper left corner  of part of the source, from where we'd like to copy
-		SRCCOPY); // Defined DWORD to juct copy pixels. Watch more on msdn;
+	BitBlt(m_pDC->GetSafeHdc(),			// Destination
+		0,								// x and
+		0,								// y - upper-left corner of place, where we'd like to copy
+		m_WindowWidth,					// width of the region
+		m_WindowHeight,					// height
+		m_hDC,							// source
+		0,								// x and
+		0,								// y of upper left corner  of part of the source, from where we'd like to copy
+		SRCCOPY);						// Defined DWORD to juct copy pixels. Watch more on msdn;
 
 	DeleteObject(m_map);
 
@@ -1218,6 +1264,7 @@ void CCGWorkView::OnActionResetView()
 	reset_transform[0][0] = 1;
 	reset_transform[1][1] = 1;
 	reset_transform[2][2] = 1;
+	reset_transform[3][2] = 1;
 	reset_transform[3][3] = 1;
 
 	m_tarnsform = reset_transform;
@@ -1339,12 +1386,12 @@ void CCGWorkView::OnOptionPrespectiveControl(){
 	PrespectiveControlDialog dlg(m_presepctive_d);
 	if (dlg.DoModal() == IDOK){
 		m_presepctive_d = dlg.d;
-		double alpha = m_presepctive_d - 0.5 * m_presepctive_d;
+
 		m_prespective_trans[0][0] = 1;
 		m_prespective_trans[1][1] = 1;
-		m_prespective_trans[2][2] = m_presepctive_d / (m_presepctive_d - alpha);
+		m_prespective_trans[2][2] = m_presepctive_d / (m_presepctive_d - m_presepctive_alpha);
 		m_prespective_trans[2][3] = 1 / m_presepctive_d;
-		m_prespective_trans[3][2] = -alpha * m_presepctive_d / (m_presepctive_d - alpha);
+		m_prespective_trans[3][2] = -m_presepctive_alpha * m_presepctive_d / (m_presepctive_d - m_presepctive_alpha);
 
 		Invalidate();
 	}
@@ -1419,7 +1466,6 @@ void CCGWorkView::OnLightConstants()
 
 void CCGWorkView::OnPolygonGiven()
 {
-	// TODO: Add your command handler code here
 	if (polygon_normal == ID_POLYGON_GIVEN)
 		polygon_normal = NULL;
 	else
@@ -1431,7 +1477,6 @@ void CCGWorkView::OnPolygonGiven()
 
 void CCGWorkView::OnPolygonCalculated()
 {
-	// TODO: Add your command handler code here
 	if (polygon_normal == ID_POLYGON_CALCULATED)
 		polygon_normal = NULL;
 	else
@@ -1443,21 +1488,18 @@ void CCGWorkView::OnPolygonCalculated()
 
 void CCGWorkView::OnUpdatePolygonCalculated(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(polygon_normal == ID_POLYGON_CALCULATED);
 }
 
 
 void CCGWorkView::OnUpdatePolygonGiven(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(polygon_normal == ID_POLYGON_GIVEN);
 }
 
 
 void CCGWorkView::OnVertexGiven()
 {
-	// TODO: Add your command handler code here
 	if (vertex_normal == ID_VERTEX_GIVEN)
 		vertex_normal = NULL;
 	else
@@ -1469,15 +1511,12 @@ void CCGWorkView::OnVertexGiven()
 
 void CCGWorkView::OnUpdateVertexGiven(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(vertex_normal == ID_VERTEX_GIVEN);
-
 }
 
 
 void CCGWorkView::OnVertexCalculated()
 {
-	// TODO: Add your command handler code here
 	if (vertex_normal == ID_VERTEX_CALCULATED)
 		vertex_normal = NULL;
 	else
@@ -1489,6 +1528,41 @@ void CCGWorkView::OnVertexCalculated()
 
 void CCGWorkView::OnUpdateVertexCalculated(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(vertex_normal == ID_VERTEX_CALCULATED);
+}
+
+void CCGWorkView::OnViewWireframe()
+{
+	render_type = ID_VIEW_WIREFRAME;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateViewWireframe(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(render_type == ID_VIEW_WIREFRAME);
+}
+
+void CCGWorkView::OnViewSolid()
+{
+	render_type = ID_VIEW_SOLID;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateViewSolid(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(render_type == ID_VIEW_SOLID);
+}
+
+
+void CCGWorkView::OnViewZ()
+{
+	render_type = ID_VIEW_Z;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateViewZ(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(render_type == ID_VIEW_Z);
 }

@@ -84,13 +84,16 @@
 #define ID_VERTEX_GIVEN                 32819
 #define ID_VERTEX_CALCULATED            32820
 #define ID_ACTION_CLEARALL              32820
+#define ID_VIEW_WIREFRAME               32821
+#define ID_VIEW_SOLID                   32822
+#define ID_VIEW_Z                       32823
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        143
-#define _APS_NEXT_COMMAND_VALUE         32821
+#define _APS_NEXT_COMMAND_VALUE         32824
 #define _APS_NEXT_CONTROL_VALUE         1052
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
