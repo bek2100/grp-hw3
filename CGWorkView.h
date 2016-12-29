@@ -45,6 +45,7 @@ private:
 	bool given_polygon_normal;
 	bool given_vertex_normal;
 	bool m_bIsPerspective;			// is the view perspective
+	int  render_type;				// rendering type
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -55,11 +56,20 @@ private:
 	double m_lMaterialSpecular;		// The Specular in the scene
 	int m_nMaterialCosineFactor;		// The cosine factor for the specular
 	
+	class x_z_point {
+		friend bool operator<(const x_z_point& l, const x_z_point& r){
+			return (l.x < r.x);
+		}
+
+	public:
+		double x;
+		double z;
+	};
 
 	// our functions
-	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<int>>* x_y = NULL);
+	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<x_z_point>>* x_y = NULL);
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
-	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
+	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color);
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;
@@ -94,13 +104,17 @@ protected:
 	BOOL InitializeCGWork();
 	BOOL SetupViewingFrustum(void);
 	BOOL SetupViewingOrthoConstAspect(void);
-	bool InRange(int x, int y, int width, int height);
 	virtual void RenderScene();
 	virtual LRESULT OnMouseMovement(WPARAM wparam, LPARAM lparam);
 
 	mat4 m_tarnsform;
 	mat4 m_screen_space_trans;
 	mat4 m_prespective_trans;
+	mat4 m_screen_space_scale;
+	mat4 m_screen_space_translate;
+	vec4 m_camera_pos;
+	vec4 m_camera_at;
+	vec4 m_camera_up;
 	double m_presepctive_d;
 	double m_presepctive_alpha;
 	double m_ambient_k;
@@ -174,6 +188,12 @@ public:
 	afx_msg void OnUpdateVertexGiven(CCmdUI *pCmdUI);
 	afx_msg void OnVertexCalculated();
 	afx_msg void OnUpdateVertexCalculated(CCmdUI *pCmdUI);
+	afx_msg void OnViewWireframe();
+	afx_msg void OnUpdateViewWireframe(CCmdUI *pCmdUI);
+	afx_msg void OnUpdateViewSolid(CCmdUI *pCmdUI);
+	afx_msg void OnViewSolid();
+	afx_msg void OnViewZ();
+	afx_msg void OnUpdateViewZ(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp

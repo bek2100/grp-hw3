@@ -81,6 +81,9 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Orthographic",               ID_VIEW_ORTHOGRAPHIC
         MENUITEM "&Perspective",                ID_VIEW_PERSPECTIVE
+        MENUITEM "Wireframe",                   ID_VIEW_WIREFRAME
+        MENUITEM "Solid",                       ID_VIEW_SOLID
+        MENUITEM "Z-Buffer",                    ID_VIEW_Z
     END
     POPUP "A&ction"
     BEGIN
@@ -113,10 +116,6 @@ BEGIN
         END
         MENUITEM "&Parameters...",              ID_LIGHT_CONSTANTS
     END
-    POPUP "&Help"
-    BEGIN
-        MENUITEM "&About CGWork...",            ID_APP_ABOUT
-    END
     POPUP "Normal"
     BEGIN
         POPUP "Polygon"
@@ -134,6 +133,10 @@ BEGIN
     BEGIN
         MENUITEM "On Screen",                   ID_POLYGON_CALCULATED
         MENUITEM "To File",                     ID_RENDER_TOFILE
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About CGWork...",            ID_APP_ABOUT
     END
 END
 

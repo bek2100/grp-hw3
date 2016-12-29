@@ -148,6 +148,15 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	view_space_scale[1][1] = (double)1 / max_box;
 	view_space_scale[2][2] = (double)1 / max_box;
 	view_space_scale[3][3] = 1;
+
+	mat4 depth_transpose;
+	depth_transpose[0][0] = 1;
+	depth_transpose[1][1] = 1;
+	depth_transpose[2][2] = 1;
+	depth_transpose[3][2] = 2;
+
+	depth_transpose[3][3] = 1;
+
 	
 	CString indx;
 	CString file_full_name = FileNames.Mid(FileNames.ReverseFind('\\') + 1);
@@ -156,6 +165,7 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	CString file_name = file_full_name.Tokenize(_T("."), n_tokens_pos);
 	for (int m = 0; m < model_cnt; m++){
 		models.rbegin()[m].view_space_trans = view_space_scale;
+		models.rbegin()[m].camera_trans = depth_transpose;
 		indx.Format(_T("%d"), m);
 		models.rbegin()[m].model_name = file_name + indx;
 	}
