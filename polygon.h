@@ -10,9 +10,12 @@ public:
 	polygon();
 	~polygon();
 	std::vector<vec4> points;
+	std::vector<line> vertexNormalsGiven;
+	std::vector<line> vertexNormalsCalculated;
 	vec4 Normal_Val(bool given);
 	line Normal(bool given);
-	vec4 Plane;	
+	std::vector<line> VertexNormal(bool given);
+	vec4 Plane;
 	bool operator==(const polygon &another_polygon) const;
 };
 

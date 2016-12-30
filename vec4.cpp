@@ -70,6 +70,16 @@ vec4 operator/(vec4 lhs, double x){
 	return res;
 };
 
+vec4 operator*(vec4 lhs, double x){
+	vec4 res;
+
+	res.x = lhs.x * x;
+	res.y = lhs.y * x;
+	res.z = lhs.z * x;
+	res.p = lhs.p * x;
+	return res;
+};
+
 double& vec4::operator[](int indx){
 	if (indx == 0)
 		return x;
