@@ -127,6 +127,12 @@ BEGIN_MESSAGE_MAP(CCGWorkView, CView)
 	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_REPEAT, &CCGWorkView::OnUpdateBackgroundRepeat)
 	ON_COMMAND(ID_BACKGROUND_STRETCH, &CCGWorkView::OnBackgroundStretch)
 	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_STRETCH, &CCGWorkView::OnUpdateBackgroundStretch)
+	ON_COMMAND(ID_OPTIONS_BACKFACECULLING, &CCGWorkView::OnOptionsBackfaceculling)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_BACKFACECULLING, &CCGWorkView::OnUpdateOptionsBackfaceculling)
+	ON_COMMAND(ID_OPTIONS_NORMALINVERSE, &CCGWorkView::OnOptionsNormalinverse)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_NORMALINVERSE, &CCGWorkView::OnUpdateOptionsNormalinverse)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_OVERRIDEGIVENNORMAL, &CCGWorkView::OnUpdateOptionsOverridegivennormal)
+	ON_COMMAND(ID_OPTIONS_OVERRIDEGIVENNORMAL, &CCGWorkView::OnOptionsOverridegivennormal)
 END_MESSAGE_MAP()
 
 
@@ -727,11 +733,11 @@ static vec4 LinePointNormal(vec4 &p1, vec4 &p2, vec4 p1_normal, vec4 p2_normal, 
 
 static COLORREF LinePointLight(vec4 &p1, vec4 &p2, COLORREF p1_color, COLORREF p2_color, int x, int y){
 
-	double p2_x = static_cast<int>(p2.x);
-	double p2_y = static_cast<int>(p2.y);
+	double p2_x = static_cast<int>(p2.x / p2.p);
+	double p2_y = static_cast<int>(p2.y / p2.p);
 
-	double p1_x = static_cast<int>(p1.x);
-	double p1_y = static_cast<int>(p1.y);
+	double p1_x = static_cast<int>(p1.x / p1.p);
+	double p1_y = static_cast<int>(p1.y / p1.p);
 
 	double c_red_delta = GetRValue(p1_color) - GetRValue(p2_color);
 	double c_grn_delta = GetGValue(p1_color) - GetGValue(p2_color);
@@ -967,7 +973,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
 			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
 			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
-			if (xy && incline != 0) {
+			if (xy && (incline != 0 || x == x2)) {
 				xzcn_point.x = x;
 				xzcn_point.z = z;
 				xzcn_point.c = c;
@@ -1040,7 +1046,7 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 	vec4 p1_normal;
 	vec4 p2_normal;
 	if (m_nLightShading == ID_LIGHT_SHADING_FLAT){
-		p2_normal_line = p1_normal_line = p.Normal(given_polygon_normal);
+		p2_normal_line = p1_normal_line = p.Normal(!m_override_normals);
 		vec4 normal_pa = p1_normal_line.p_a * cur_transform;
 		vec4 normal_pb = p1_normal_line.p_b * cur_transform;
 		p1_normal = (normal_pa / normal_pa.p) - (normal_pb / normal_pb.p);
@@ -1056,8 +1062,8 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 		COLORREF c1 = color;
 		COLORREF c2 = color;
 		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD || m_nLightShading == ID_LIGHT_SHADING_PHONg){
-			p1_normal_line = p.VertexNormal(given_vertex_normal)[p1];
-			p2_normal_line = p.VertexNormal(given_vertex_normal)[p2];
+			p1_normal_line = p.VertexNormal(!m_override_normals)[p1];
+			p2_normal_line = p.VertexNormal(!m_override_normals)[p2];
 			vec4 p1_normal_pa = p1_normal_line.p_a * cur_transform;
 			vec4 p1_normal_pb = p1_normal_line.p_b * cur_transform;
 			vec4 p2_normal_pa = p2_normal_line.p_a * cur_transform;
@@ -1065,12 +1071,12 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			p1_normal = (p1_normal_pa / p1_normal_pa.p) - (p1_normal_pb / p1_normal_pb.p);
 			p2_normal = (p2_normal_pa / p2_normal_pa.p) - (p2_normal_pb / p2_normal_pb.p);
 		}
-		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD){
-			c1 = ApplyLight(color, p1_normal, p1);
-			c2 = ApplyLight(color, p2_normal, p2);
-		}
 		p1 = p1 * cur_transform;
 		p2 = p2 * cur_transform;
+		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD){
+			c1 = ApplyLight(color, p1_normal, p1 / p1.p);
+			c2 = ApplyLight(color, p2_normal, p2 / p2.p);
+		}
 		//q.push_back(p1 / p1.p);
 
 		// skip polygons behind the camera
@@ -1078,6 +1084,7 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 			return;
+		if (m_back_face_culling && p1_normal.z > 0) return;
 		DrawLine(z_arr, arr, p1, p2, c1, &p1_normal, c2, &p2_normal, &x_y);
 	}
 	
@@ -1090,6 +1097,7 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 	for (auto iter = x_y.begin(); iter != x_y.end(); ++iter){
 		std::sort(iter->second.begin(), iter->second.end());
 		int y = iter->first;
+		bool draw = true;
 		for (unsigned int i = 0; i <= iter->second.size() - 2; i++){
 			if (iter->second.size() > 1){
 				scan_p1 = vec4(iter->second[i].x, y, iter->second[i].z, 1);
@@ -1099,7 +1107,7 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 				n1 = iter->second[i].n;
 				n2 = iter->second[i + 1].n;
 				for (int x = static_cast<int>(iter->second[i].x); x <= iter->second[i + 1].x; x++){
-					if (IN_RANGE(x, y)){
+					if (IN_RANGE(x, y) && draw){
 						z = LinePointDepth(scan_p1, scan_p2, x, y);
 						if (z < z_arr[SCREEN_SPACE(x, y)]){
 							vec4 n = p1_normal;
@@ -1118,6 +1126,7 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 				}
 			}
 		}
+		draw = !draw;
 	}
 }
 
@@ -1354,9 +1363,10 @@ void CCGWorkView::RenderScene() {
 		else if (m_nView == ID_VIEW_PERSPECTIVE){
 			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_prespective_trans * m_screen_space_translate;
 		}
-
 		if (render_type == ID_VIEW_SOLID || render_type == ID_VIEW_Z)
 			for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+				p1 = cur_polygon.Normal(given_polygon_normal).p_a * cur_transform;
+				p2 = cur_polygon.Normal(given_polygon_normal).p_b * cur_transform;
 				ScanConversion(z_buffer, m_screen, models[m].polygons[pol], no_presp_trans, cur_transform, models[m].color);
 			}
 		else if (render_type == ID_VIEW_WIREFRAME)
@@ -1860,8 +1870,6 @@ void CCGWorkView::OnUpdateRenderToscreen(CCmdUI *pCmdUI)
 	pCmdUI->SetCheck(m_render_target == ID_RENDER_TOSCREEN);
 }
 
-
-
 void CCGWorkView::OnBackgroundSetimage()
 {
 	TCHAR szFilters[] = _T("PNG Data Files (*.png)|*.png|All Files (*.*)|*.*||");
@@ -1927,4 +1935,46 @@ void CCGWorkView::OnBackgroundStretch()
 void CCGWorkView::OnUpdateBackgroundStretch(CCmdUI *pCmdUI)
 {
 	pCmdUI->SetCheck(m_background_type == ID_BACKGROUND_STRETCH);
+}
+
+
+void CCGWorkView::OnOptionsBackfaceculling()
+{
+	// TODO: Add your command handler code here
+	
+	m_back_face_culling = !m_back_face_culling;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateOptionsBackfaceculling(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_back_face_culling);
+}
+
+
+void CCGWorkView::OnOptionsNormalinverse()
+{
+	// TODO: Add your command handler code here
+}
+
+
+void CCGWorkView::OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+}
+
+
+void CCGWorkView::OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_override_normals);
+}
+
+
+void CCGWorkView::OnOptionsOverridegivennormal()
+{
+	m_override_normals = !m_override_normals;
+	Invalidate();
 }
