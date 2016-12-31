@@ -1050,21 +1050,14 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 	// "draw" the lines on screen and save where the x's of each y row are
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
-		p1 = p.points[pnt] * cur_transform;
-		if (pnt + 1 == p.points.size()) p2 = p.points[0] * cur_transform;
-		else p2 = p.points[pnt + 1] * cur_transform;
-		//q.push_back(p1 / p1.p);
-
-		// skip polygons behind the camera
-		if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
-			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
-			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
-			return;
+		p1 = p.points[pnt];
+		if (pnt + 1 == p.points.size()) p2 = p.points[0];
+		else p2 = p.points[pnt + 1];
 		COLORREF c1 = color;
 		COLORREF c2 = color;
 		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD || m_nLightShading == ID_LIGHT_SHADING_PHONg){
-			p1_normal_line = p.VertexNormal(given_vertex_normal)[pnt];
-			p2_normal_line = p.VertexNormal(given_vertex_normal)[(pnt + 1) % p.points.size()];
+			p1_normal_line = p.VertexNormal(given_vertex_normal)[p1];
+			p2_normal_line = p.VertexNormal(given_vertex_normal)[p2];
 			vec4 p1_normal_pa = p1_normal_line.p_a * cur_transform;
 			vec4 p1_normal_pb = p1_normal_line.p_b * cur_transform;
 			vec4 p2_normal_pa = p2_normal_line.p_a * cur_transform;
@@ -1076,6 +1069,15 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			c1 = ApplyLight(color, p1_normal, p1);
 			c2 = ApplyLight(color, p2_normal, p2);
 		}
+		p1 = p1 * cur_transform;
+		p2 = p2 * cur_transform;
+		//q.push_back(p1 / p1.p);
+
+		// skip polygons behind the camera
+		if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
+			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
+			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
+			return;
 		DrawLine(z_arr, arr, p1, p2, c1, &p1_normal, c2, &p2_normal, &x_y);
 	}
 	
@@ -1361,7 +1363,10 @@ void CCGWorkView::RenderScene() {
 			for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
 			p1 = (models[m].points_list[pnt].p_a)* cur_transform;
 			p2 = (models[m].points_list[pnt].p_b)* cur_transform;
+			int prev_shading = m_nLightShading;
+			m_nLightShading = ID_LIGHT_SHADING_FLAT;
 			DrawLine(z_buffer, m_screen, p1, p2, models[m].color, &psudo_normal);
+			m_nLightShading = prev_shading;
 			}
 
 		if (polygon_normal == ID_POLYGON_GIVEN || polygon_normal == ID_POLYGON_CALCULATED){
@@ -1369,7 +1374,10 @@ void CCGWorkView::RenderScene() {
 				cur_polygon = models[m].polygons[count];
 				p1 = cur_polygon.Normal(given_polygon_normal).p_a * cur_transform;
 				p2 = cur_polygon.Normal(given_polygon_normal).p_b * cur_transform;
+				int prev_shading = m_nLightShading;
+				m_nLightShading = ID_LIGHT_SHADING_FLAT;
 				DrawLine(z_buffer, m_screen, p1, p2, m_polygon_norm_color, &psudo_normal);
+				m_nLightShading = prev_shading;
 			}
 		}
 
@@ -1378,7 +1386,10 @@ void CCGWorkView::RenderScene() {
 			for (unsigned int count = 0; count < vertex_normal.size(); count++){
 				p1 = vertex_normal[count].p_a * cur_transform;
 				p2 = vertex_normal[count].p_b * cur_transform;
+				int prev_shading = m_nLightShading;
+				m_nLightShading = ID_LIGHT_SHADING_FLAT;
 				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color, &psudo_normal);
+				m_nLightShading = prev_shading;
 			}
 		}
 
@@ -1794,19 +1805,16 @@ void CCGWorkView::OnUpdateViewZ(CCmdUI *pCmdUI)
 	pCmdUI->SetCheck(render_type == ID_VIEW_Z);
 }
 
-
 void CCGWorkView::OnLightShadingPhong()
 {
 	m_nLightShading = ID_LIGHT_SHADING_PHONg;
 	Invalidate();
 }
 
-
 void CCGWorkView::OnUpdateLightShadingPhong(CCmdUI *pCmdUI)
 {
 	pCmdUI->SetCheck(m_nLightShading == ID_LIGHT_SHADING_PHONg);
 }
-
 
 void CCGWorkView::OnRenderTofile()
 {
@@ -1833,7 +1841,6 @@ void CCGWorkView::OnRenderTofile()
 
 	Invalidate();
 }
-
 
 void CCGWorkView::OnUpdateRenderTofile(CCmdUI *pCmdUI)
 {

@@ -35,7 +35,7 @@ line polygon::Normal(bool given){
 	return line(start, end);
 }
 
-std::vector<line> polygon::VertexNormal(bool given){
+std::unordered_map<vec4, line> polygon::VertexNormal(bool given){
 	if (given) return vertexNormalsGiven;
 	return vertexNormalsCalculated;
 }

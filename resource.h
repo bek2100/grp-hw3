@@ -80,28 +80,29 @@
 #define ID_AXIS_XY32811                 32811
 #define ID_BOUNDBOX                     32814
 #define ID_OPTIONS_OTHEROPTIONS         32815
-#define ID_NORMAL_POLYGON               32815
 #define ID_POLYGON_GIVEN                32816
 #define ID_POLYGON_CALCULATED           32817
 #define ID_NORMAL_VERTEX                32818
-#define ID_RENDER_TOFILE                32819
-#define ID_VERTEX_GIVEN                 32820
-#define ID_VERTEX_CALCULATED            32821
-#define ID_ACTION_CLEARALL              32822
-#define ID_VIEW_WIREFRAME               32823
-#define ID_VIEW_SOLID                   32824
-#define ID_VIEW_Z                       32825
-#define ID_LIGHT_SHADING_PHONg          32826
-#define ID_LIGHT_SHADING_PHON           32827
-#define D_LIGHT_SHADING_PHONg           32828
-#define D_LIGHT_SHADING_PHONGG          32829
-#define ID_RENDER_TOSCREEN              32830
-#define ID_RE                           32831
-#define ID_BACKGROUND_SETIMAGE          32831
-#define ID_VERTEX_CALC                  32832
-#define ID_BACKGROUND_REPEAT            32832
-#define ID_BACKGROUND_STRETCH           32833
-#define ID_BACKGROUND_ACTIVE            32834
+#define ID_NORMAL_POLYGON               32819
+#define ID_RENDER_TOFILE                32820
+#define ID_VERTEX_GIVEN                 32821
+#define ID_VERTEX_CALCULATED            32822
+#define ID_ACTION_CLEARALL              32823
+#define ID_VIEW_WIREFRAME               32824
+#define ID_VIEW_SOLID                   32825
+#define ID_VIEW_Z                       32826
+#define ID_LIGHT_SHADING_PHONg          32827
+#define ID_LIGHT_SHADING_PHON           32828
+#define D_LIGHT_SHADING_PHONg           32829
+#define D_LIGHT_SHADING_PHONGG          32830
+#define ID_RENDER_TOSCREEN              32831
+#define ID_RE                           32832
+#define ID_BACKGROUND_SETIMAGE          32833
+#define ID_VERTEX_CALC                  32834
+#define ID_BACKGROUND_REPEAT            32835
+#define ID_BACKGROUND_STRETCH           32836
+#define ID_BACKGROUND_ACTIVE            32837
+
 
 // Next default values for new objects
 // 

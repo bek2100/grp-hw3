@@ -26,19 +26,19 @@ namespace std
 			return (hash<double>()(p.p_a.x + p.p_a.y+ p.p_a.z) + hash<double>()(p.p_b.x + p.p_b.y+ p.p_b.z));
 		}
 	};
-	template < >
-	struct hash<vec4>
-	{
-		size_t operator()(const vec4& p) const
-		{
-			// Compute individual hash values for two data members and combine them using XOR and bit shifting
-			return (hash<double>()(p.x) + hash<double>()(p.y) + hash<double>()(p.z));
-		}
-	};
+	//template < >
+	//struct hash<vec4>
+	//{
+	//	size_t operator()(const vec4& p) const
+	//	{
+	//		// Compute individual hash values for two data members and combine them using XOR and bit shifting
+	//		return (hash<double>()(p.x) + hash<double>()(p.y) + hash<double>()(p.z));
+	//	}
+	//};
 }
 std::unordered_map<line, int> lines;
 std::unordered_map<vec4, int> vertex;
-std::unordered_map<vec4, std::vector<polygon>> vertex_polygons;
+std::unordered_map<vec4, std::vector<polygon*>> vertex_polygons;
 
 IPFreeformConvStateStruct CGSkelFFCState = {
 	FALSE,          /* Talkative */
@@ -326,7 +326,7 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 						vertex[temp_vert] ++;
 						models.back().vertex_normals_list.push_back(line(temp_vert, temp_vert + vertex1));
 					}
-					models.back().polygons[poly_cnt].vertexNormalsGiven.push_back(line(temp_vert, temp_vert + vertex1));
+					models.back().polygons[poly_cnt].vertexNormalsGiven[temp_vert] = line(temp_vert, temp_vert + vertex1);
 				}
 
 
@@ -351,7 +351,7 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				models.back().points_list.push_back(cur_line);
 				lines[cur_line]++;
 			}
-			vertex_polygons[p1].push_back(models.back().polygons[p]);
+			vertex_polygons[p1].push_back(&models.back().polygons[p]);
 		}
 	}
 
@@ -362,14 +362,14 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				vertex[p1]++;
 				vec4 avr;
 				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
-					avr = avr + vertex_polygons[p1][j].Normal_Val(false);
+					avr = avr + vertex_polygons[p1][j]->Normal_Val(false);
 				}
 				avr = avr / vertex_polygons[p1].size();
 				p2 = p1 + avr;
 				p2[3] = 1;
 				cur_line = line(p1, p2);
 				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
-					vertex_polygons[p1][j].vertexNormalsCalculated.push_back(cur_line);
+					vertex_polygons[p1][j]->vertexNormalsCalculated[p1] = cur_line;
 				}
 				models.back().vertex_normals_list_polygons.push_back(cur_line);
 			}
