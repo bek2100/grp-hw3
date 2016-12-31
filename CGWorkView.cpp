@@ -24,6 +24,7 @@ static char THIS_FILE[] = __FILE__;
 #include "PngWrapper.h"
 #include "iritSkel.h"
 #include "MouseSensetiveDialog.h"
+#include "FileRenderDlg.h"
 #include "mat4.h"
 #include "ColorSelectionDialog.h"
 #include "PrespectiveControlDialog.h"
@@ -108,6 +109,10 @@ BEGIN_MESSAGE_MAP(CCGWorkView, CView)
 	ON_UPDATE_COMMAND_UI(ID_VIEW_Z, &CCGWorkView::OnUpdateViewZ)
 	ON_COMMAND(ID_LIGHT_SHADING_PHONg, &CCGWorkView::OnLightShadingPhong)
 	ON_UPDATE_COMMAND_UI(ID_LIGHT_SHADING_PHONg, &CCGWorkView::OnUpdateLightShadingPhong)
+	ON_COMMAND(ID_RENDER_TOFILE, &CCGWorkView::OnRenderTofile)
+	ON_UPDATE_COMMAND_UI(ID_RENDER_TOFILE, &CCGWorkView::OnUpdateRenderTofile)
+	ON_UPDATE_COMMAND_UI(ID_RENDER_TOSCREEN, &CCGWorkView::OnUpdateRenderToscreen)
+	ON_COMMAND(ID_RENDER_TOSCREEN, &CCGWorkView::OnRenderToscreen)
 END_MESSAGE_MAP()
 
 
@@ -159,6 +164,7 @@ CCGWorkView::CCGWorkView()
 
 	m_nLightShading = ID_LIGHT_SHADING_FLAT;
 	render_type = ID_VIEW_SOLID;
+	m_render_target = ID_RENDER_TOSCREEN;
 	//init the coesffiecents of the lights
 	m_ambient_k = 0.3;
 	m_diffuse_k = 0.7;
@@ -272,6 +278,9 @@ void CCGWorkView::OnSize(UINT nType, int cx, int cy)
 	// save the width and height of the current window
 	m_WindowWidth = cx;
 	m_WindowHeight = cy;
+
+	m_OriginalWindowWidth = m_WindowWidth;
+	m_OriginalWindowHeight = m_WindowHeight;
 
 	// compute the aspect ratio
 	// this will keep all dimension scales equal
@@ -659,17 +668,11 @@ static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
 	double z;
 
 	if (y_delta != 0) // line does not change in y
-		z = (z_delta / y_delta) * (y - p2_y) + p2.z;
+		z = (z_delta / y_delta) * (y - p2_y) + p2_z;
 	else if (x_delta != 0) // line does not change in x
-		z = (z_delta / x_delta) * (x - p2_x) + p2.z;
+		z = (z_delta / x_delta) * (x - p2_x) + p2_z;
 	else // line does not change in y and x, meaning we only draw p1 on screen
-		z = max(p1.z, p2.z);
-
-	//double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
-	//double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
-	//double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
-	//double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-	//double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
+		z = max(p1_z, p2_z);
 
 	return z;
 	
@@ -696,12 +699,6 @@ static vec4 LinePointNormal(vec4 &p1, vec4 &p2, vec4 p1_normal, vec4 p2_normal, 
 		n = (n_delta / x_delta) * (x - p2_x) + p2_normal;
 	else // line does not change in y and x, meaning we only draw p1 on screen
 		n = p1_normal;
-
-	//double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
-	//double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
-	//double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
-	//double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-	//double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
 
 	return n;
 
@@ -1274,6 +1271,11 @@ void CCGWorkView::RenderScene() {
 	}
 
 
+	if (m_render_target = ID_RENDER_TOFILE){
+
+	}
+
+
 	m_map = CreateBitmap(m_WindowWidth,	// width
 		m_WindowHeight,					// height
 		1,								// Color Planes, unfortanutelly don't know what is it actually. Let it be 1
@@ -1686,3 +1688,38 @@ void CCGWorkView::OnUpdateLightShadingPhong(CCmdUI *pCmdUI)
 {
 	pCmdUI->SetCheck(m_nLightShading == ID_LIGHT_SHADING_PHONg);
 }
+
+
+void CCGWorkView::OnRenderTofile()
+{
+	FileRenderDlg dlg(m_WindowWidth, m_WindowHeight);
+	m_OriginalWindowHeight = m_WindowHeight;
+	m_OriginalWindowWidth = m_WindowWidth;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		m_WindowHeight = dlg.m_pic_height;
+		m_WindowWidth = dlg.m_pic_width;
+		m_render_target = ID_RENDER_TOFILE;
+	}
+	
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateRenderTofile(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_render_target == ID_RENDER_TOFILE);
+}
+
+void CCGWorkView::OnRenderToscreen()
+{
+	m_render_target = ID_RENDER_TOSCREEN;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateRenderToscreen(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_render_target == ID_RENDER_TOSCREEN);
+}
+

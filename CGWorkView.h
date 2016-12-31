@@ -45,7 +45,8 @@ private:
 	bool given_polygon_normal;
 	bool given_vertex_normal;
 	bool m_bIsPerspective;			// is the view perspective
-	int  render_type;				// rendering type
+	int render_type;				// rendering type
+	int m_render_target;			// render to a file or to the screent
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -133,6 +134,8 @@ protected:
 	CDC*     m_pDC;			// holds the Device Context
 	int m_WindowWidth;		// hold the windows width
 	int m_WindowHeight;		// hold the windows height
+	int m_OriginalWindowWidth;		// hold the original window width
+	int m_OriginalWindowHeight;		// hold the original window height
 	double m_AspectRatio;		// hold the fixed Aspect Ration
 	double m_mouse_sensetivity;
 	COLORREF *m_screen;
@@ -198,6 +201,10 @@ public:
 	afx_msg void OnUpdateViewZ(CCmdUI *pCmdUI);
 	afx_msg void OnLightShadingPhong();
 	afx_msg void OnUpdateLightShadingPhong(CCmdUI *pCmdUI);
+	afx_msg void OnRenderTofile();
+	afx_msg void OnUpdateRenderTofile(CCmdUI *pCmdUI);
+	afx_msg void OnUpdateRenderToscreen(CCmdUI *pCmdUI);
+	afx_msg void OnRenderToscreen();
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp
