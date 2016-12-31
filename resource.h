@@ -11,6 +11,7 @@
 #define IDD_COLOR_DLG                   140
 #define IDD_PRESPECTIVE_DLG             141
 #define IDD_OTHERS_DLG                  142
+#define IDD_FILERENDER_DLG              143
 #define IDC_LIGHT_SPACE                 1010
 #define IDC_RADIO_LIGHT1                1017
 #define IDC_RADIO_LIGHT2                1018
@@ -50,7 +51,10 @@
 #define IDC_BUTTON5                     1050
 #define IDC_AMBIENT_MOD                 1051
 #define IDC_SPECULAR_MOD                1052
+#define IDC_PIC_HEIGHT                  1052
 #define IDC_DIFFUSE_MOD                 1053
+#define IDC_PIC_WIDTH                   1053
+#define IDC_FILE_NAME                   1054
 #define ID_FILE_LOAD                    32771
 #define ID_VIEW_ORTHOGRAPHIC            32772
 #define ID_VIEW_PERSPECTIVE             32773
@@ -80,22 +84,32 @@
 #define ID_POLYGON_GIVEN                32816
 #define ID_POLYGON_CALCULATED           32817
 #define ID_NORMAL_VERTEX                32818
-#define ID_RENDER_TOFILE                32818
-#define ID_VERTEX_GIVEN                 32819
-#define ID_VERTEX_CALCULATED            32820
-#define ID_ACTION_CLEARALL              32820
-#define ID_VIEW_WIREFRAME               32821
-#define ID_VIEW_SOLID                   32822
-#define ID_VIEW_Z                       32823
-#define ID_LIGHT_SHADING_PHONg          32824
+#define ID_RENDER_TOFILE                32819
+#define ID_VERTEX_GIVEN                 32820
+#define ID_VERTEX_CALCULATED            32821
+#define ID_ACTION_CLEARALL              32822
+#define ID_VIEW_WIREFRAME               32823
+#define ID_VIEW_SOLID                   32824
+#define ID_VIEW_Z                       32825
+#define ID_LIGHT_SHADING_PHONg          32826
+#define ID_LIGHT_SHADING_PHON           32827
+#define D_LIGHT_SHADING_PHONg           32828
+#define D_LIGHT_SHADING_PHONGG          32829
+#define ID_RENDER_TOSCREEN              32830
+#define ID_RE                           32831
+#define ID_BACKGROUND_SETIMAGE          32831
+#define ID_VERTEX_CALC                  32832
+#define ID_BACKGROUND_REPEAT            32832
+#define ID_BACKGROUND_STRETCH           32833
+#define ID_BACKGROUND_ACTIVE            32834
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        143
-#define _APS_NEXT_COMMAND_VALUE         32825
-#define _APS_NEXT_CONTROL_VALUE         1052
+#define _APS_NEXT_RESOURCE_VALUE        144
+#define _APS_NEXT_COMMAND_VALUE         32835
+#define _APS_NEXT_CONTROL_VALUE         1057
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

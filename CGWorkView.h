@@ -22,6 +22,7 @@
 #include "polygon.h"
 #include <vector>
 #include "model.h"
+#include "PngWrapper.h"
 
 class CCGWorkView : public CView
 {
@@ -56,6 +57,7 @@ private:
 	double m_lMaterialDiffuse;		// The Diffuse in the scene
 	double m_lMaterialSpecular;		// The Specular in the scene
 	int m_nMaterialCosineFactor;		// The cosine factor for the specular
+
 	
 	class x_z_c_n_point {
 		friend bool operator<(const x_z_c_n_point& l, const x_z_c_n_point& r){
@@ -73,6 +75,7 @@ private:
 	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF p1_color, vec4* p1_normal = NULL, COLORREF p2_color = NULL, vec4* p2_normal = NULL, std::unordered_map<int, std::vector<x_z_c_n_point>>* x_y = NULL);
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color);
+	void SetBackgound();
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;
@@ -124,6 +127,14 @@ protected:
 	double m_diffuse_k;
 	double m_speculr_k;
 	std::vector<bool> active_modules;
+	std::string m_pic_name;
+
+	PngWrapper m_pngHandle; // Png handle class for writing
+	PngWrapper m_pngBackground; // Png handle class for background
+
+	bool m_active_background;
+	bool m_valid_background;
+	int m_background_type;
 
 	int m_mouse_xpos;
 	int m_mouse_ypos;
@@ -205,6 +216,13 @@ public:
 	afx_msg void OnUpdateRenderTofile(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateRenderToscreen(CCmdUI *pCmdUI);
 	afx_msg void OnRenderToscreen();
+	afx_msg void OnBackgroundSetimage();
+	afx_msg void OnBackgroundActive();
+	afx_msg void OnUpdateBackgroundActive(CCmdUI *pCmdUI);
+	afx_msg void OnBackgroundRepeat();
+	afx_msg void OnUpdateBackgroundRepeat(CCmdUI *pCmdUI);
+	afx_msg void OnBackgroundStretch();
+	afx_msg void OnUpdateBackgroundStretch(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp
