@@ -168,9 +168,9 @@ void PngWrapper::SetValue(unsigned int x,unsigned int y,unsigned int value)
         if (m_info_ptr->channels == 1)
             m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = value & 0x000000ff;
         else if(m_info_ptr->channels == 3){
-            m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = GET_R(value),
+            m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = GET_B(value),
             m_info_ptr->row_pointers[y][m_info_ptr->channels*x+1] = GET_G(value),
-            m_info_ptr->row_pointers[y][m_info_ptr->channels*x+2] = GET_B(value);
+            m_info_ptr->row_pointers[y][m_info_ptr->channels*x+2] = GET_R(value);
         }
         else if(m_info_ptr->channels == 4){
             m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = GET_R(value),

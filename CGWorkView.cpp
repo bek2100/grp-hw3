@@ -45,6 +45,13 @@ extern IPFreeformConvStateStruct CGSkelFFCState;
 
 #define IN_RANGE(x, y) ((1 <= x) && (x < (m_WindowWidth - 1)) && (1 <= y) && (y < (m_WindowHeight - 1)))
 #define SCREEN_SPACE(x, y) (x + m_WindowWidth * y)
+#define BGR(x) RGB(GetBValue(x), GetGValue(x), GetRValue(x));
+#define SET_RGB(r,g,b) ((r)<<24|(g)<<16|(b)<<8|0)
+#define SET_RGBA(r,g,b,a) ((r)<<24|(g)<<16|(b)<<8|a)
+#define GET_R(x) (((x)&0xff000000)>>24)
+#define GET_G(x) (((x)&0x00ff0000)>>16)
+#define GET_B(x) (((x)&0x0000ff00)>>8)
+#define GET_A(x) ((x)&0x000000ff)
 
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView
@@ -113,6 +120,13 @@ BEGIN_MESSAGE_MAP(CCGWorkView, CView)
 	ON_UPDATE_COMMAND_UI(ID_RENDER_TOFILE, &CCGWorkView::OnUpdateRenderTofile)
 	ON_UPDATE_COMMAND_UI(ID_RENDER_TOSCREEN, &CCGWorkView::OnUpdateRenderToscreen)
 	ON_COMMAND(ID_RENDER_TOSCREEN, &CCGWorkView::OnRenderToscreen)
+	ON_COMMAND(ID_BACKGROUND_SETIMAGE, &CCGWorkView::OnBackgroundSetimage)
+	ON_COMMAND(ID_BACKGROUND_ACTIVE, &CCGWorkView::OnBackgroundActive)
+	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_ACTIVE, &CCGWorkView::OnUpdateBackgroundActive)
+	ON_COMMAND(ID_BACKGROUND_REPEAT, &CCGWorkView::OnBackgroundRepeat)
+	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_REPEAT, &CCGWorkView::OnUpdateBackgroundRepeat)
+	ON_COMMAND(ID_BACKGROUND_STRETCH, &CCGWorkView::OnBackgroundStretch)
+	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_STRETCH, &CCGWorkView::OnUpdateBackgroundStretch)
 END_MESSAGE_MAP()
 
 
@@ -149,6 +163,11 @@ CCGWorkView::CCGWorkView()
 	m_tarnsform[3][3] = 1;
 
 	m_presepctive_d = 2;
+	m_pic_name = "Default Name.png";
+	m_pngHandle.SetFileName(m_pic_name.c_str());
+
+	m_active_background = false;
+	m_valid_background = false;
 
 	// initilize the cameras' position and direction in the view space
 	// used later
@@ -165,6 +184,8 @@ CCGWorkView::CCGWorkView()
 	m_nLightShading = ID_LIGHT_SHADING_FLAT;
 	render_type = ID_VIEW_SOLID;
 	m_render_target = ID_RENDER_TOSCREEN;
+
+	m_background_type = ID_BACKGROUND_REPEAT;
 	//init the coesffiecents of the lights
 	m_ambient_k = 0.3;
 	m_diffuse_k = 0.7;
@@ -816,6 +837,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 		if (z < z_arr[SCREEN_SPACE(x, y)]){
 			arr[SCREEN_SPACE(x, y)] = c;
 			z_arr[SCREEN_SPACE(x, y)] = z;
+			if (m_render_target == ID_RENDER_TOFILE){
+				//COLORREF png_c = BGR(c);
+				//m_pngHandle.SetValue(x, y, png_c);
+				m_pngHandle.SetValue(x, y, c);
+			}
 		}		
 	}
 	// select the correct midpoint algorithm (direction and incline)
@@ -839,6 +865,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						//COLORREF png_c = BGR(c);
+						//m_pngHandle.SetValue(x, y, png_c);
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -874,6 +905,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						//COLORREF png_c = BGR(c);
+						//m_pngHandle.SetValue(x, y, png_c);
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -906,6 +942,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						//COLORREF png_c = BGR(c);
+						//m_pngHandle.SetValue(x, y, png_c);
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -937,6 +978,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						//COLORREF png_c = BGR(c);
+						//m_pngHandle.SetValue(x, y, png_c);
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -969,6 +1015,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						//COLORREF png_c = BGR(c);
+						//m_pngHandle.SetValue(x, y, png_c);
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -1056,6 +1107,12 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 							if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) arr[SCREEN_SPACE(x, y)] = LinePointLight(scan_p1, scan_p2, c1, c2, x, y);
 							else arr[SCREEN_SPACE(x, y)] = ApplyLight(color, n, vec4(x, y, z, 1));
 							z_arr[SCREEN_SPACE(x, y)] = z;
+
+							if (m_render_target == ID_RENDER_TOFILE){
+								//COLORREF png_c = BGR(arr[SCREEN_SPACE(x, y)]);
+								//m_pngHandle.SetValue(x, y, png_c);
+								m_pngHandle.SetValue(x, y, arr[SCREEN_SPACE(x, y)]);
+							}
 						}
 					}
 				}
@@ -1221,9 +1278,69 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 	return out_color;
 }
 
+void CCGWorkView::SetBackgound(){
+	if (m_active_background && m_valid_background){
+		int bpp = m_pngBackground.GetNumChannels();
+		int screen_indx;
+		int cur_color;
+		int pic_width = m_pngBackground.GetWidth();
+		int pic_height = m_pngBackground.GetHeight();
+		if (bpp == 3 || bpp == 4){
+			for (int x = 0; x < m_WindowWidth; x++)
+				for (int y = 0; y < m_WindowHeight; y++){
+					if (m_background_type == ID_BACKGROUND_REPEAT)
+						cur_color = m_pngBackground.GetValue(
+						x % pic_width,
+						y % pic_height
+						);
+					else if (m_background_type == ID_BACKGROUND_STRETCH)
+						cur_color = m_pngBackground.GetValue(
+						static_cast<int>(((double)pic_width / m_WindowWidth) * x),
+						static_cast<int>(((double)pic_height / m_WindowHeight) * y)
+						);
+
+					m_screen[SCREEN_SPACE(x, y)] = RGB(GET_B(cur_color), GET_G(cur_color), GET_R(cur_color));
+				}
+		}
+		else
+			for (int x = 0; x < m_WindowWidth; x++)
+				for (int y = 0; y < m_WindowHeight; y++){
+					if (m_background_type == ID_BACKGROUND_REPEAT)
+						cur_color = m_pngBackground.GetValue(
+						x % pic_width,
+						y % pic_height
+						);
+					else if (m_background_type == ID_BACKGROUND_STRETCH)
+						cur_color = m_pngBackground.GetValue(
+						static_cast<int>(((double)pic_width / m_WindowWidth) * x),
+						static_cast<int>(((double)pic_height / m_WindowHeight) * y)
+						);
+
+					m_screen[SCREEN_SPACE(x, y)] = m_pngBackground.GetValue(x, y);
+				}
+	}
+	else
+		std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
+
+}
+
 void CCGWorkView::RenderScene() {
+
+	if (m_render_target == ID_RENDER_TOFILE){
+		m_pngHandle.SetWidth(m_WindowWidth);
+		m_pngHandle.SetHeight(m_WindowHeight);
+		if (!m_pngHandle.InitWritePng()){
+			//TODO send error
+			return;
+		}
+
+	}
+
 	vec4 psudo_normal = vec4(0, 0, 0, 1);
-	std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
+
+	SetBackgound();
+
+	
 	std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
 	vec4 p1, p2;
 	polygon cur_polygon;
@@ -1282,32 +1399,33 @@ void CCGWorkView::RenderScene() {
 	}
 
 
-	if (m_render_target = ID_RENDER_TOFILE){
+	if (m_render_target == ID_RENDER_TOFILE){
+		m_pngHandle.WritePng();
+	}
+	else {
+
+		m_map = CreateBitmap(m_WindowWidth,	// width
+			m_WindowHeight,					// height
+			1,								// Color Planes, unfortanutelly don't know what is it actually. Let it be 1
+			8 * 4,							// Size of memory for one pixel in bits (in win32 4 bytes = 4*8 bits)
+			(void*)m_screen);				// pointer to array
+
+		SelectObject(m_hDC, m_map);			// Inserting picture into our temp HDC
+
+		// Copy image from temp HDC to window
+		BitBlt(m_pDC->GetSafeHdc(),			// Destination
+			0,								// x and
+			0,								// y - upper-left corner of place, where we'd like to copy
+			m_WindowWidth,					// width of the region
+			m_WindowHeight,					// height
+			m_hDC,							// source
+			0,								// x and
+			0,								// y of upper left corner  of part of the source, from where we'd like to copy
+			SRCCOPY);						// Defined DWORD to juct copy pixels. Watch more on msdn;
 
 	}
 
-
-	m_map = CreateBitmap(m_WindowWidth,	// width
-		m_WindowHeight,					// height
-		1,								// Color Planes, unfortanutelly don't know what is it actually. Let it be 1
-		8 * 4,							// Size of memory for one pixel in bits (in win32 4 bytes = 4*8 bits)
-		(void*)m_screen);				// pointer to array
-
-	SelectObject(m_hDC, m_map);			// Inserting picture into our temp HDC
-
-	// Copy image from temp HDC to window
-	BitBlt(m_pDC->GetSafeHdc(),			// Destination
-		0,								// x and
-		0,								// y - upper-left corner of place, where we'd like to copy
-		m_WindowWidth,					// width of the region
-		m_WindowHeight,					// height
-		m_hDC,							// source
-		0,								// x and
-		0,								// y of upper left corner  of part of the source, from where we'd like to copy
-		SRCCOPY);						// Defined DWORD to juct copy pixels. Watch more on msdn;
-
 	DeleteObject(m_map);
-
 	return;
 }
 
@@ -1700,7 +1818,8 @@ void CCGWorkView::OnUpdateLightShadingPhong(CCmdUI *pCmdUI)
 
 void CCGWorkView::OnRenderTofile()
 {
-	FileRenderDlg dlg(m_WindowWidth, m_WindowHeight);
+	CString window_pic_name(m_pic_name.c_str());
+	FileRenderDlg dlg(m_WindowWidth, m_WindowHeight, window_pic_name);
 	m_OriginalWindowHeight = m_WindowHeight;
 	m_OriginalWindowWidth = m_WindowWidth;
 
@@ -1708,9 +1827,18 @@ void CCGWorkView::OnRenderTofile()
 	{
 		m_WindowHeight = dlg.m_pic_height;
 		m_WindowWidth = dlg.m_pic_width;
+
+		//// Convert a TCHAR string to a LPCSTR
+		// required for data type conversions
+		CT2CA pszConvertedAnsiString(dlg.m_pic_name);
+		m_pic_name = std::string(pszConvertedAnsiString);
+
+		m_pngHandle.SetFileName(m_pic_name.c_str());
+
 		m_render_target = ID_RENDER_TOFILE;
+		
 	}
-	
+
 	Invalidate();
 }
 
@@ -1722,6 +1850,8 @@ void CCGWorkView::OnUpdateRenderTofile(CCmdUI *pCmdUI)
 void CCGWorkView::OnRenderToscreen()
 {
 	m_render_target = ID_RENDER_TOSCREEN;
+	m_WindowHeight = m_OriginalWindowHeight;
+	m_WindowHeight = m_OriginalWindowWidth;
 	Invalidate();
 }
 
@@ -1730,3 +1860,71 @@ void CCGWorkView::OnUpdateRenderToscreen(CCmdUI *pCmdUI)
 	pCmdUI->SetCheck(m_render_target == ID_RENDER_TOSCREEN);
 }
 
+
+
+void CCGWorkView::OnBackgroundSetimage()
+{
+	TCHAR szFilters[] = _T("PNG Data Files (*.png)|*.png|All Files (*.*)|*.*||");
+
+	CFileDialog dlg(TRUE, _T("png"), _T("*.png"), OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, szFilters);
+
+	if (dlg.DoModal() == IDOK) {	
+		CT2CA pszConvertedAnsiString(dlg.GetPathName()); // Full path and filename
+
+		std::string string_filename = std::string(pszConvertedAnsiString);
+
+		m_pngBackground.SetFileName(string_filename.c_str());
+		
+		
+		if (m_pngBackground.ReadPng()){
+			m_valid_background = true;
+			m_pngBackground.ReadPng();
+		}
+		else {
+			m_valid_background = false;
+			// TODO eror message
+		}
+
+		Invalidate();	// force a WM_PAINT for drawing.
+	}
+
+}
+
+
+void CCGWorkView::OnBackgroundActive()
+{
+	m_active_background = !m_active_background;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateBackgroundActive(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_active_background);
+}
+
+
+void CCGWorkView::OnBackgroundRepeat()
+{
+	m_background_type = ID_BACKGROUND_REPEAT;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateBackgroundRepeat(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_background_type == ID_BACKGROUND_REPEAT);
+}
+
+
+void CCGWorkView::OnBackgroundStretch()
+{
+	m_background_type = ID_BACKGROUND_STRETCH;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateBackgroundStretch(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_background_type == ID_BACKGROUND_STRETCH);
+}
