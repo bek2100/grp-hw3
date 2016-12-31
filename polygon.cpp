@@ -35,6 +35,11 @@ line polygon::Normal(bool given){
 	return line(start, end);
 }
 
+std::vector<line> polygon::VertexNormal(bool given){
+	if (given) return vertexNormalsGiven;
+	return vertexNormalsCalculated;
+}
+
 bool polygon::operator==(const polygon &another_polygon) const{
 	bool eq = true;
 	for (unsigned int p = 0; p < points.size(); p++){

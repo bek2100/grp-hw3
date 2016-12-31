@@ -315,18 +315,18 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				if (temp_vert.z > max_vec.z || models.back().polygons.front().points.size() == 0) max_vec.z = temp_vert.z;
 
 				models.back().polygons[poly_cnt].points.push_back(temp_vert); // create an additional vertex
-
 				
-				if (vertex[temp_vert] == 0){
-					vertex[temp_vert] ++;
-					if (IP_HAS_NORMAL_VRTX(PVertex)){
-						vec4 vertex;
-						vertex[0] = PVertex->Normal[0];
-						vertex[1] = PVertex->Normal[1];
-						vertex[2] = PVertex->Normal[2];
-						vertex[3] = 0.0; // scale fix when adding on line below
-						models.back().vertex_normals_list.push_back(line(temp_vert, temp_vert + vertex));
+				if (IP_HAS_NORMAL_VRTX(PVertex)){
+					vec4 vertex1;
+					vertex1[0] = PVertex->Normal[0];
+					vertex1[1] = PVertex->Normal[1];
+					vertex1[2] = PVertex->Normal[2];
+					vertex1[3] = 0.0; // scale fix when adding on line below
+					if (vertex[temp_vert] == 0){
+						vertex[temp_vert] ++;
+						models.back().vertex_normals_list.push_back(line(temp_vert, temp_vert + vertex1));
 					}
+					models.back().polygons[poly_cnt].vertexNormalsGiven.push_back(line(temp_vert, temp_vert + vertex1));
 				}
 
 
@@ -344,7 +344,6 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 
 	for (unsigned int p = 0; p < models.back().polygons.size(); p++){
 		for (unsigned int pnt = 0; pnt < models.back().polygons[p].points.size(); pnt++){
-			
 			p1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
 			p2 = models.back().polygons[p].points[(pnt + 1) % models.back().polygons[p].points.size()];
 			cur_line = line(p1, p2);
@@ -358,18 +357,20 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 
 	for (unsigned int p = 0; p < models.back().polygons.size(); p++){
 		for (unsigned int pnt = 0; pnt < models.back().polygons[p].points.size(); pnt++){
-			vec4 pp_1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
-			vec4 pp_2;
-			if (vertex[pp_1] == 1){
-				vertex[pp_1]++;
+			p1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
+			if (vertex[p1] == 1){
+				vertex[p1]++;
 				vec4 avr;
-				for (unsigned int j = 0; j <vertex_polygons[pp_1].size(); j++){
-					avr = avr + vertex_polygons[pp_1][j].Normal_Val(false);
+				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
+					avr = avr + vertex_polygons[p1][j].Normal_Val(false);
 				}
-				avr = avr / vertex_polygons[pp_1].size();
-				pp_2 = pp_1 + avr;
-				pp_2[3] = 1;
-				cur_line = line(pp_1, pp_2);
+				avr = avr / vertex_polygons[p1].size();
+				p2 = p1 + avr;
+				p2[3] = 1;
+				cur_line = line(p1, p2);
+				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
+					vertex_polygons[p1][j].vertexNormalsCalculated.push_back(cur_line);
+				}
 				models.back().vertex_normals_list_polygons.push_back(cur_line);
 			}
 		}

@@ -56,18 +56,20 @@ private:
 	double m_lMaterialSpecular;		// The Specular in the scene
 	int m_nMaterialCosineFactor;		// The cosine factor for the specular
 	
-	class x_z_point {
-		friend bool operator<(const x_z_point& l, const x_z_point& r){
+	class x_z_c_n_point {
+		friend bool operator<(const x_z_c_n_point& l, const x_z_c_n_point& r){
 			return (l.x < r.x);
 		}
 
 	public:
 		double x;
 		double z;
+		COLORREF c;
+		vec4 n;
 	};
 
 	// our functions
-	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<x_z_point>>* x_y = NULL);
+	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF p1_color, vec4* p1_normal = NULL, COLORREF p2_color = NULL, vec4* p2_normal = NULL, std::unordered_map<int, std::vector<x_z_c_n_point>>* x_y = NULL);
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color);
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
@@ -194,6 +196,8 @@ public:
 	afx_msg void OnViewSolid();
 	afx_msg void OnViewZ();
 	afx_msg void OnUpdateViewZ(CCmdUI *pCmdUI);
+	afx_msg void OnLightShadingPhong();
+	afx_msg void OnUpdateLightShadingPhong(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp
