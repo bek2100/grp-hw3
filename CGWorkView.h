@@ -50,6 +50,7 @@ private:
 	int m_render_target;			// render to a file or to the screent
 	bool m_override_normals;
 	bool m_back_face_culling;
+	bool m_silhouette;
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -84,6 +85,7 @@ private:
 	COLORREF m_boundbox_color;
 	COLORREF m_vertex_norm_color;
 	COLORREF m_polygon_norm_color;
+	COLORREF m_silhouette_color;
 
 	LightParams m_lights[MAX_LIGHT];	//configurable lights array
 	LightParams m_ambientLight;		//ambient light (only RGB is used)
@@ -231,6 +233,8 @@ public:
 	afx_msg void OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI);
 	afx_msg void OnOptionsOverridegivennormal();
+	afx_msg void OnOptionsAddsilhouette();
+	afx_msg void OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp
