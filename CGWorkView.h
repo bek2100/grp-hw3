@@ -48,6 +48,8 @@ private:
 	bool m_bIsPerspective;			// is the view perspective
 	int render_type;				// rendering type
 	int m_render_target;			// render to a file or to the screent
+	bool m_override_normals;
+	bool m_back_face_culling;
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -223,6 +225,12 @@ public:
 	afx_msg void OnUpdateBackgroundRepeat(CCmdUI *pCmdUI);
 	afx_msg void OnBackgroundStretch();
 	afx_msg void OnUpdateBackgroundStretch(CCmdUI *pCmdUI);
+	afx_msg void OnOptionsBackfaceculling();
+	afx_msg void OnUpdateOptionsBackfaceculling(CCmdUI *pCmdUI);
+	afx_msg void OnOptionsNormalinverse();
+	afx_msg void OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI);
+	afx_msg void OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI);
+	afx_msg void OnOptionsOverridegivennormal();
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp
