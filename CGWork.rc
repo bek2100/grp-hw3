@@ -108,6 +108,7 @@ BEGIN
         MENUITEM "Back Face Culling",           ID_OPTIONS_BACKFACECULLING
         MENUITEM "Normal Inverse",              ID_OPTIONS_NORMALINVERSE
         MENUITEM "Override Given Normals",      ID_OPTIONS_OVERRIDEGIVENNORMAL
+        MENUITEM "Add Silhouette",              ID_OPTIONS_ADDSILHOUETTE
     END
     POPUP "&Light"
     BEGIN
@@ -296,6 +297,9 @@ BEGIN
     LTEXT           "Color Selection",IDC_STATIC,132,11,48,8
     PUSHBUTTON      "PolygonNorm",IDC_BUTTON4,131,70,50,14
     PUSHBUTTON      "VertexNorm",IDC_BUTTON5,12,70,50,14
+    PUSHBUTTON      "Silhouette",IDC_BUTTON6,245,70,50,14
+    EDITTEXT        IDC_SILLHUOTTE_THICKNESS,98,100,37,14,ES_AUTOHSCROLL
+    LTEXT           "Silhouette thickness:",IDC_STATIC,20,104,76,8
 END
 
 IDD_PRESPECTIVE_DLG DIALOGEX 0, 0, 309, 58

@@ -50,11 +50,13 @@
 #define IDC_BUTTON4                     1049
 #define IDC_BUTTON5                     1050
 #define IDC_AMBIENT_MOD                 1051
+#define IDC_BUTTON6                     1051
 #define IDC_SPECULAR_MOD                1052
 #define IDC_PIC_HEIGHT                  1052
 #define IDC_DIFFUSE_MOD                 1053
 #define IDC_PIC_WIDTH                   1053
 #define IDC_FILE_NAME                   1054
+#define IDC_SILLHUOTTE_THICKNESS        1057
 #define ID_FILE_LOAD                    32771
 #define ID_VIEW_ORTHOGRAPHIC            32772
 #define ID_VIEW_PERSPECTIVE             32773
@@ -102,15 +104,18 @@
 #define ID_BACKGROUND_REPEAT            32835
 #define ID_BACKGROUND_STRETCH           32836
 #define ID_BACKGROUND_ACTIVE            32837
-
+#define ID_OPTIONS_BACKFACECULLING      32838
+#define ID_OPTIONS_NORMALINVERSE        32839
+#define ID_OPTIONS_OVERRIDEGIVENNORMAL  32840
+#define ID_OPTIONS_ADDSILHOUETTE        32841
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        144
-#define _APS_NEXT_COMMAND_VALUE         32835
-#define _APS_NEXT_CONTROL_VALUE         1057
+#define _APS_NEXT_COMMAND_VALUE         32842
+#define _APS_NEXT_CONTROL_VALUE         1058
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

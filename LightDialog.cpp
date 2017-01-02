@@ -82,6 +82,7 @@ BEGIN_MESSAGE_MAP(CLightDialog, CDialog)
     ON_BN_CLICKED(IDC_RADIO_LIGHT8, &CLightDialog::OnBnClickedRadioLight)
 	ON_BN_CLICKED(IDC_LIGHT_ENABLED, &CLightDialog::OnBnClickedLightEnabled)
 	ON_CBN_SELCHANGE(IDC_LIGHT_TYPE, &CLightDialog::OnCbnSelchangeLightType)
+	ON_EN_CHANGE(IDC_LIGHT_COLOR_R, &CLightDialog::OnEnChangeLightColorR)
 END_MESSAGE_MAP()
 
 void CLightDialog::SetDialogData( LightID id,const LightParams& light )
@@ -143,3 +144,14 @@ void CLightDialog::OnCbnSelchangeLightType()
 	
 }
 
+
+
+void CLightDialog::OnEnChangeLightColorR()
+{
+	// TODO:  If this is a RICHEDIT control, the control will not
+	// send this notification unless you override the CDialog::OnInitDialog()
+	// function and call CRichEditCtrl().SetEventMask()
+	// with the ENM_CHANGE flag ORed into the mask.
+
+	// TODO:  Add your control notification handler code here
+}

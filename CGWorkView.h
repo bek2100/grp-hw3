@@ -50,6 +50,8 @@ private:
 	int m_render_target;			// render to a file or to the screent
 	bool m_override_normals;
 	bool m_back_face_culling;
+	bool m_silhouette;
+	double m_silhouette_thickness;
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -78,12 +80,15 @@ private:
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color);
 	void SetBackgound();
+	double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y);
+
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;
 	COLORREF m_boundbox_color;
 	COLORREF m_vertex_norm_color;
 	COLORREF m_polygon_norm_color;
+	COLORREF m_silhouette_color;
 
 	LightParams m_lights[MAX_LIGHT];	//configurable lights array
 	LightParams m_ambientLight;		//ambient light (only RGB is used)
@@ -231,6 +236,8 @@ public:
 	afx_msg void OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI);
 	afx_msg void OnOptionsOverridegivennormal();
+	afx_msg void OnOptionsAddsilhouette();
+	afx_msg void OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp
