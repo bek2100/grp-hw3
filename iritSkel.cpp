@@ -326,6 +326,7 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 						vertex[temp_vert] ++;
 						models.back().vertex_normals_list.push_back(line(temp_vert, temp_vert + vertex1));
 					}
+
 					models.back().polygons[poly_cnt].vertexNormalsGiven[temp_vert] = line(temp_vert, temp_vert + vertex1);
 				}
 
