@@ -51,6 +51,7 @@ private:
 	bool m_override_normals;
 	bool m_back_face_culling;
 	bool m_silhouette;
+	double m_silhouette_thickness;
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -79,6 +80,8 @@ private:
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color);
 	void SetBackgound();
+	double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y);
+
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;

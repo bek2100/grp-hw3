@@ -176,6 +176,7 @@ CCGWorkView::CCGWorkView()
 
 	m_active_background = false;
 	m_valid_background = false;
+	m_silhouette_thickness = 10;
 
 	// initilize the cameras' position and direction in the view space
 	// used later
@@ -682,8 +683,8 @@ static double Depth(std::vector<vec4> q, int x, int y){
 	return p2.z; //cheating 
 }
 
-static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
-
+double CCGWorkView::LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
+	
 	double p2_x = static_cast<int>(p2.x / p2.p);
 	double p2_y = static_cast<int>(p2.y / p2.p);
 	double p2_z = (p2.z / p2.p);
@@ -843,7 +844,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 		(*x_y)[y].push_back(xzcn_point);
 	}
 	if (IN_RANGE(x, y)){
-		if (z < z_arr[SCREEN_SPACE(x, y)]){
+		if (z <= z_arr[SCREEN_SPACE(x, y)]){
 			arr[SCREEN_SPACE(x, y)] = c;
 			z_arr[SCREEN_SPACE(x, y)] = z;
 			if (m_render_target == ID_RENDER_TOFILE){
@@ -871,7 +872,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				(*x_y)[y].push_back(xzcn_point);
 			}
 			if (IN_RANGE(x, y)){
-				if (z < z_arr[SCREEN_SPACE(x, y)]){
+				if (z <= z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
@@ -911,7 +912,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				(*x_y)[y].push_back(xzcn_point);
 			}
 			if (IN_RANGE(x, y)){
-				if (z < z_arr[SCREEN_SPACE(x, y)]){
+				if (z <= z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
@@ -948,7 +949,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				(*x_y)[y].push_back(xzcn_point);
 			}
 			if (IN_RANGE(x, y)){
-				if (z < z_arr[SCREEN_SPACE(x, y)]){
+				if (z <= z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
@@ -984,7 +985,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				(*x_y)[y].push_back(xzcn_point);
 			}
 			if (IN_RANGE(x, y)){
-				if (z < z_arr[SCREEN_SPACE(x, y)]){
+				if (z <= z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
@@ -1021,7 +1022,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				(*x_y)[y].push_back(xzcn_point);
 			}
 			if (IN_RANGE(x, y)){
-				if (z < z_arr[SCREEN_SPACE(x, y)]){
+				if (z <= z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
@@ -1111,7 +1112,7 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 				for (int x = static_cast<int>(iter->second[i].x); x <= iter->second[i + 1].x; x++){
 					if (IN_RANGE(x, y) && draw){
 						z = LinePointDepth(scan_p1, scan_p2, x, y);
-						if (z < z_arr[SCREEN_SPACE(x, y)]){
+						if (z <= z_arr[SCREEN_SPACE(x, y)]){
 							vec4 n = p1_normal;
 							if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(scan_p1, scan_p2, n1, n2, x, y);
 							if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) arr[SCREEN_SPACE(x, y)] = LinePointLight(scan_p1, scan_p2, c1, c2, x, y);
@@ -1437,7 +1438,7 @@ void CCGWorkView::RenderScene() {
 				line pol_normal = models[m].polygons[count].Normal(!m_override_normals);
 				p1 = pol_normal.p_a * cur_transform;
 				p2 = pol_normal.p_b * cur_transform;
-				int polygon_normal_direction = (p1.z / p1.p > p2.z / p2.p) ? 2 : 1;
+				int polygon_normal_direction = (p1.z / p1.p >= p2.z / p2.p) ? 2 : 1;
 				for (unsigned int p = 0; p < models[m].polygons[count].points.size(); p++){
 					vec4 cur_vertex = models[m].polygons[count].points[p];
 					vec4 next_vertex = models[m].polygons[count].points[(p + 1) % models[m].polygons[count].points.size()];
@@ -1465,6 +1466,8 @@ void CCGWorkView::RenderScene() {
 						p2 = cur_normals[cur_vertex].p_b;
 						vec4 p3 = cur_normals[next_vertex].p_b;
 						vec4 p4 = cur_normals[next_vertex].p_a;
+						p2 = p1 + (p2 - p1) * m_silhouette_thickness / m_WindowHeight;
+						p3 = p4 + (p3 - p4) * m_silhouette_thickness / m_WindowHeight;
 						polygon p;
 						p.points.push_back(p1);
 						p.points.push_back(p2);
@@ -1680,7 +1683,7 @@ void CCGWorkView::OnUpdateAxisXY(CCmdUI* pCmdUI)
 
 void CCGWorkView::OnWriteframeColor()
 {
-	ColorSelectionDialog dlg(m_color_wireframe, m_boundbox_color, m_background_color, m_vertex_norm_color, m_polygon_norm_color);
+	ColorSelectionDialog dlg(m_color_wireframe, m_boundbox_color, m_background_color, m_vertex_norm_color, m_polygon_norm_color, m_silhouette_color, m_silhouette_thickness);
 	if (dlg.DoModal() == IDOK){
 
 		m_color_wireframe = RGB(GetBValue(dlg.wireframe_color), GetGValue(dlg.wireframe_color), GetRValue(dlg.wireframe_color));
@@ -1688,6 +1691,8 @@ void CCGWorkView::OnWriteframeColor()
 		m_background_color = RGB(GetBValue(dlg.background_color), GetGValue(dlg.background_color), GetRValue(dlg.background_color));
 		m_vertex_norm_color = RGB(GetBValue(dlg.vertex_norm_color), GetGValue(dlg.vertex_norm_color), GetRValue(dlg.vertex_norm_color));
 		m_polygon_norm_color = RGB(GetBValue(dlg.polygon_norm_color), GetGValue(dlg.polygon_norm_color), GetRValue(dlg.polygon_norm_color));
+		m_silhouette_color = RGB(GetBValue(dlg.silhouette_color), GetGValue(dlg.silhouette_color), GetRValue(dlg.silhouette_color));
+		m_silhouette_thickness = dlg.silhouette_thickness;
 
 		for (unsigned int m = 0; m < models.size(); m++){
 			models[m].color = m_color_wireframe;
