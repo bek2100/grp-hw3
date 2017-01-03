@@ -54,9 +54,9 @@
 #define IDC_PIC_HEIGHT                  1055
 #define IDC_DIFFUSE_MOD                 1056
 #define IDC_PIC_WIDTH                   1057
-#define IDC_EDIT1                       1057
-#define IDC_SPECULAR_N                  1057
 #define IDC_FILE_NAME                   1058
+#define IDC_EDIT1                       1059
+#define IDC_SPECULAR_N                  1060
 #define ID_FILE_LOAD                    32771
 #define ID_VIEW_ORTHOGRAPHIC            32772
 #define ID_VIEW_PERSPECTIVE             32773
