@@ -1,4 +1,5 @@
 #include <iostream>
+#include "stdafx.h"
 #include <assert.h>
 #include "png.h"
 #include "PngWrapper.h"
@@ -155,6 +156,7 @@ int PngWrapper::GetHeight()
 {
     return m_height;
 }
+
 // these access function will assert if you try to 
 // set value to non existant png 
 // or outside its domain
@@ -168,9 +170,9 @@ void PngWrapper::SetValue(unsigned int x,unsigned int y,unsigned int value)
         if (m_info_ptr->channels == 1)
             m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = value & 0x000000ff;
         else if(m_info_ptr->channels == 3){
-            m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = GET_B(value),
-            m_info_ptr->row_pointers[y][m_info_ptr->channels*x+1] = GET_G(value),
-            m_info_ptr->row_pointers[y][m_info_ptr->channels*x+2] = GET_R(value);
+            m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = GetBValue(value),
+            m_info_ptr->row_pointers[y][m_info_ptr->channels*x+1] = GetGValue(value),
+			m_info_ptr->row_pointers[y][m_info_ptr->channels*x + 2] = GetRValue(value);
         }
         else if(m_info_ptr->channels == 4){
             m_info_ptr->row_pointers[y][m_info_ptr->channels*x] = GET_R(value),

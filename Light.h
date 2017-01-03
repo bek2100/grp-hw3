@@ -1,4 +1,5 @@
 #pragma once
+#include "vec4.h"
 
 typedef enum 
 {
@@ -49,11 +50,15 @@ public:
     double posY;
     double posZ;
 
+	vec4 rel_pos;
+
     //direction
     double dirX;
     double dirY;
     double dirZ;
     
+	vec4 rel_dir;
+
     LightParams():
 	enabled(false),type(LIGHT_TYPE_DIRECTIONAL),space(LIGHT_SPACE_VIEW),
 	colorR(255),colorG(255),colorB(255),posX(0),posY(0),posZ(0),

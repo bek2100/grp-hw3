@@ -153,7 +153,7 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	depth_transpose[0][0] = 1;
 	depth_transpose[1][1] = 1;
 	depth_transpose[2][2] = 1;
-	depth_transpose[3][2] = 2;
+	depth_transpose[3][2] = 8;
 
 	depth_transpose[3][3] = 1;
 
@@ -369,7 +369,7 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				p2 = p1 + avr;
 				p2[3] = 1;
 				cur_line = line(p1, p2);
-				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
+				for (unsigned int j = 0; j < vertex_polygons[p1].size(); j++){
 					vertex_polygons[p1][j]->vertexNormalsCalculated[p1] = cur_line;
 				}
 				models.back().vertex_normals_list_polygons.push_back(cur_line);

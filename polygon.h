@@ -16,8 +16,10 @@ public:
 	std::unordered_map<vec4, line> vertexNormalsCalculated;
 	vec4 Normal_Val(bool given);
 	line Normal(bool given);
+	void inverse();
 	std::unordered_map<vec4, line> VertexNormal(bool given);
 	vec4 Plane;
 	bool operator==(const polygon &another_polygon) const;
+	int m_inv;
 };
 
