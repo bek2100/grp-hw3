@@ -359,9 +359,9 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 	for (unsigned int p = 0; p < models.back().polygons.size(); p++){
 		for (unsigned int pnt = 0; pnt < models.back().polygons[p].points.size(); pnt++){
 			p1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
-			if (vertex[p1] == 1){
+			if (vertex[p1] <= 1){
 				vertex[p1]++;
-				vec4 avr;
+				vec4 avr = vec4(0,0,0,0);
 				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
 					avr = avr + vertex_polygons[p1][j]->Normal_Val(false);
 				}

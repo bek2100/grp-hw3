@@ -703,7 +703,7 @@ double CCGWorkView::LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
 	else if (x_delta != 0) // line does not change in x
 		z = (z_delta / x_delta) * (x - p2_x) + p2_z;
 	else // line does not change in y and x, meaning we only draw p1 on screen
-		z = max(p1_z, p2_z);
+		z = min(p1_z, p2_z);
 
 	return z;
 	
@@ -1129,7 +1129,6 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 			return;
-		if (m_back_face_culling && p1_normal.z > 0) return;
 		DrawLine(z_arr, arr, p1, p2, c1, &p1_normal, c2, &p2_normal, &x_y);
 	}
 	
@@ -1415,7 +1414,7 @@ void CCGWorkView::RenderScene() {
 				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
 					p1 = models[m].polygons[pol].Normal(!m_override_normals).p_a * cur_transform;
 					p2 = models[m].polygons[pol].Normal(!m_override_normals).p_b * cur_transform;
-					if (p1.z / p1.p < p2.z / p2.p) ScanConversion(z_buffer, m_screen, models[m].polygons[pol], no_presp_trans, cur_transform, models[m].color);
+					if (p2.z / p2.p < p1.z / p1.p) ScanConversion(z_buffer, m_screen, models[m].polygons[pol], no_presp_trans, cur_transform, models[m].color);
 				}
 			}
 		}
@@ -1434,7 +1433,7 @@ void CCGWorkView::RenderScene() {
 				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
 					p1 = models[m].polygons[pol].Normal(!m_override_normals).p_a * cur_transform;
 					p2 = models[m].polygons[pol].Normal(!m_override_normals).p_b * cur_transform;
-					if (p1.z / p1.p < p2.z / p2.p){
+					if (p2.z / p2.p < p1.z / p1.p){
 						for (unsigned int p = 0; p < models[m].polygons[pol].points.size(); p++){
 							int prev_shading = m_nLightShading;
 							m_nLightShading = ID_LIGHT_SHADING_FLAT;
