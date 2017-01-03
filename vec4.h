@@ -21,6 +21,7 @@ vec4 operator+(vec4 lhs, vec4 rhs);
 vec4 operator-(vec4 lhs, vec4 rhs);
 vec4 operator/(vec4 lhs, double x);
 vec4 operator*(vec4 lhs, double x);
+vec4 operator*(double x, vec4 lhs);
 
 struct vec4Hasher
 {

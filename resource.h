@@ -37,26 +37,26 @@
 #define IDC_LIGHT_TYPE                  1038
 #define IDC_MATERIAL_AMBIENT            1039
 #define IDC_MATERIAL_DIFFUSE            1040
-#define IDC_EDIT_MOUSESESNSETIVE        1040
-#define IDC_MATERIAL_SHININESS          1041
-#define IDC_STATIC_MOUSESESNSE          1041
-#define IDC_MATERIAL_SPECULAR           1042
-#define IDC_BUTTON1                     1042
-#define IDC_BUTTON2                     1043
-#define IDC_BUTTON3                     1044
-#define IDC_PRESPECTIVE_D               1045
-#define IDC_EDIT_FINESS                 1046
-#define IDC_EDIT_MODEL_LIST             1048
-#define IDC_BUTTON4                     1049
-#define IDC_BUTTON5                     1050
-#define IDC_AMBIENT_MOD                 1051
-#define IDC_BUTTON6                     1051
-#define IDC_SPECULAR_MOD                1052
-#define IDC_PIC_HEIGHT                  1052
-#define IDC_DIFFUSE_MOD                 1053
-#define IDC_PIC_WIDTH                   1053
-#define IDC_FILE_NAME                   1054
-#define IDC_SILLHUOTTE_THICKNESS        1057
+#define IDC_EDIT_MOUSESESNSETIVE        1041
+#define IDC_MATERIAL_SHININESS          1042
+#define IDC_STATIC_MOUSESESNSE          1043
+#define IDC_MATERIAL_SPECULAR           1044
+#define IDC_BUTTON1                     1045
+#define IDC_BUTTON2                     1046
+#define IDC_BUTTON3                     1047
+#define IDC_PRESPECTIVE_D               1048
+#define IDC_EDIT_FINESS                 1049
+#define IDC_EDIT_MODEL_LIST             1050
+#define IDC_BUTTON4                     1051
+#define IDC_BUTTON5                     1052
+#define IDC_AMBIENT_MOD                 1053
+#define IDC_SPECULAR_MOD                1054
+#define IDC_PIC_HEIGHT                  1055
+#define IDC_DIFFUSE_MOD                 1056
+#define IDC_PIC_WIDTH                   1057
+#define IDC_EDIT1                       1057
+#define IDC_SPECULAR_N                  1057
+#define IDC_FILE_NAME                   1058
 #define ID_FILE_LOAD                    32771
 #define ID_VIEW_ORTHOGRAPHIC            32772
 #define ID_VIEW_PERSPECTIVE             32773
@@ -108,13 +108,15 @@
 #define ID_OPTIONS_NORMALINVERSE        32839
 #define ID_OPTIONS_OVERRIDEGIVENNORMAL  32840
 #define ID_OPTIONS_ADDSILHOUETTE        32841
+#define IDC_BUTTON6                     32842
+#define IDC_SILLHUOTTE_THICKNESS        32843
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        144
-#define _APS_NEXT_COMMAND_VALUE         32842
+#define _APS_NEXT_COMMAND_VALUE         32841
 #define _APS_NEXT_CONTROL_VALUE         1058
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
