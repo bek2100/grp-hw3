@@ -162,7 +162,7 @@ CCGWorkView::CCGWorkView()
 	m_object_space_trans = false;
 	m_bound_box = false;
 	m_mouse_sensetivity = 1;
-	CGSkelFFCState.FineNess = 20;
+	CGSkelFFCState.FineNess = 2;
 
 	m_bIsPerspective = false;
 	m_tarnsform[0][0] = 1;
@@ -724,53 +724,78 @@ static vec4 LinePointNormal(vec4 &p1, vec4 &p2, vec4 p1_normal, vec4 p2_normal, 
 	double x_delta = p1_x - p2_x;
 	vec4 n;
 
-	if (y_delta != 0) // line does not change in y
+	if (y_delta != 0 && (abs(y_delta) >= abs(x_delta))) // line does not change in y
 		n = (n_delta / y_delta) * (y - p2_y) + p2_normal;
 	else if (x_delta != 0) // line does not change in x
 		n = (n_delta / x_delta) * (x - p2_x) + p2_normal;
 	else // line does not change in y and x, meaning we only draw p1 on screen
-		n = p1_normal;
+		n = (p1_z < p2_z) ? p1_normal : p2_normal;
 
 	return n;
 
 }
 
-static COLORREF LinePointLight(vec4 &p1, vec4 &p2, COLORREF p1_color, COLORREF p2_color, int x, int y){
+static COLORREF LinePointLight(vec4 &p1, vec4 &p2, COLORREF p1_color, COLORREF p2_color, double x, double y){
 
 	double p2_x = static_cast<int>(p2.x / p2.p);
 	double p2_y = static_cast<int>(p2.y / p2.p);
-
+  
 	double p1_x = static_cast<int>(p1.x / p1.p);
 	double p1_y = static_cast<int>(p1.y / p1.p);
 
-	double c_red_delta = GetRValue(p1_color) - GetRValue(p2_color);
-	double c_grn_delta = GetGValue(p1_color) - GetGValue(p2_color);
-	double c_blu_delta = GetBValue(p1_color) - GetBValue(p2_color);
+	double p1_z = static_cast<int>(p1.z / p1.p);
+	double p2_z = static_cast<int>(p2.z / p2.p);
+
+
+	int c_red_delta = GetRValue(p1_color) - GetRValue(p2_color);
+	int c_grn_delta = GetGValue(p1_color) - GetGValue(p2_color);
+	int c_blu_delta = GetBValue(p1_color) - GetBValue(p2_color);
 	double y_delta = p1_y - p2_y;
 	double x_delta = p1_x - p2_x;
+	double z_delta = p1_z - p2_z;
+
 	double cred;
 	double cgrn;
 	double cblu;
 	COLORREF c;
 
-	if (y_delta != 0){ // line does not change in y
-		cred = (c_red_delta / y_delta) * (y - p2_y) + GetRValue(p2_color);
-		cgrn = (c_grn_delta / y_delta) * (y - p2_y) + GetGValue(p2_color);
-		cblu = (c_blu_delta / y_delta) * (y - p2_y) + GetBValue(p2_color);
-		c = RGB(static_cast<int>(min(cred, 255)),
-			static_cast<int>(min(cgrn, 255)),
-			static_cast<int>(min(cblu, 255)));
+	int p1r = GetRValue(p1_color);
+	int p1g = GetGValue(p1_color);
+	int p1b = GetBValue(p1_color);
+
+	int p2r = GetRValue(p2_color);
+	int p2g = GetGValue(p2_color);
+	int p2b = GetBValue(p2_color);
+
+	bool use_y = y_delta < x_delta;
+
+
+	if (y_delta != 0 && (abs(y_delta) >= abs(x_delta))){ // line does not change in x
+		cred = ((double)c_red_delta / y_delta) * (y - p2_y) + GetRValue(p2_color);
+		cgrn = ((double)c_grn_delta / y_delta) * (y - p2_y) + GetGValue(p2_color);
+		cblu = ((double)c_blu_delta / y_delta) * (y - p2_y) + GetBValue(p2_color);
 	}
-	else if (x_delta != 0){ // line does not change in x
-		cred = (c_red_delta / x_delta) * (x - p2_x) + GetRValue(p2_color);
-		cgrn = (c_grn_delta / x_delta) * (x - p2_x) + GetGValue(p2_color);
-		cblu = (c_blu_delta / x_delta) * (x - p2_x) + GetBValue(p2_color);
-		c = RGB(static_cast<int>(min(cred, 255)),
-			static_cast<int>(min(cgrn, 255)),
-			static_cast<int>(min(cblu, 255)));
+	else if (x_delta != 0){ // line does not change in y
+		cred = ((double)c_red_delta / x_delta) * (x - p2_x) + GetRValue(p2_color);
+		cgrn = ((double)c_grn_delta / x_delta) * (x - p2_x) + GetGValue(p2_color);
+		cblu = ((double)c_blu_delta / x_delta) * (x - p2_x) + GetBValue(p2_color);
 	}
-	else // line does not change in y and x, meaning we only draw p1 on screen
-		c = max(p1_color, p2_color);
+	else { // line does not change in y and x, meaning we only draw p1 on screen
+		cred = (p1_z < p2_z) ? GetRValue(p1_color) : GetRValue(p2_color);
+		cgrn = (p1_z < p2_z) ? GetGValue(p1_color) : GetGValue(p2_color);
+		cblu = (p1_z < p2_z) ? GetBValue(p1_color) : GetBValue(p2_color);
+	}
+
+	c = RGB(static_cast<int>(max(min(cred, 255), 0)),
+		    static_cast<int>(max(min(cgrn, 255), 0)),
+			static_cast<int>(max(min(cblu, 255), 0)));
+
+	int c2r = static_cast<int>(max(min(cred, 255), 0));
+	int c2g = static_cast<int>(max(min(cgrn, 255), 0));
+	int c2b = static_cast<int>(max(min(cblu, 255), 0));
+
+	if (cred < 0 || cgrn < 0 || cblu < 0)
+		bool shit = true;
 
 	return c;
 
@@ -829,27 +854,37 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 	double z;
 	x_z_c_n_point xzcn_point;
+
+	std::vector<COLORREF> color_debug;
+	bool inc = false;
+	bool dec = false;
+	bool stat = false;
+
 	COLORREF c;
 	vec4 n = *p1_normal;
 
 	z = LinePointDepth(p1, p2, x, y);
-	if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
-	if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color ,x, y);
-	else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+	if (m_nLightShading == ID_LIGHT_SHADING_PHONg)
+		n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+
+	if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD)
+		c = LinePointLight(p1, p2, p1_color, p2_color ,x, y);
+	else 
+		c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
 	if (xy) {
 		xzcn_point.x = x;
 		xzcn_point.z = z;
 		xzcn_point.c = c;
 		xzcn_point.n = n;
+		
 		(*x_y)[y].push_back(xzcn_point);
 	}
-	if (IN_RANGE(x, y)){
-		if (z <= z_arr[SCREEN_SPACE(x, y)]){
+	else if (IN_RANGE(x, y)){
+		if (z < z_arr[SCREEN_SPACE(x, y)]){
 			arr[SCREEN_SPACE(x, y)] = c;
 			z_arr[SCREEN_SPACE(x, y)] = z;
 			if (m_render_target == ID_RENDER_TOFILE){
-				//COLORREF png_c = BGR(c);
-				//m_pngHandle.SetValue(x, y, png_c);
 				m_pngHandle.SetValue(x, y, c);
 			}
 		}		
@@ -860,24 +895,28 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 		while (y < y2){
 			y = y + 1;
+
 			z = LinePointDepth(p1, p2, x, y);
-			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
-			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
-			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+				n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) 
+				c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else 
+				c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
 			if (xy) {
 				xzcn_point.x = x;
 				xzcn_point.z = z;
 				xzcn_point.c = c;
 				xzcn_point.n = n;
 				(*x_y)[y].push_back(xzcn_point);
+
 			}
-			if (IN_RANGE(x, y)){
-				if (z <= z_arr[SCREEN_SPACE(x, y)]){
+			else if (IN_RANGE(x, y)){
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
-						//COLORREF png_c = BGR(c);
-						//m_pngHandle.SetValue(x, y, png_c);
 						m_pngHandle.SetValue(x, y, c);
 					}
 				}
@@ -900,10 +939,15 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y + 1;
 			}
+
 			z = LinePointDepth(p1, p2, x, y);
-			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
-			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
-			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+				n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) 
+				c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else 
+				c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
 			if (xy) {
 				xzcn_point.x = x;
 				xzcn_point.z = z;
@@ -911,13 +955,11 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				xzcn_point.n = n;
 				(*x_y)[y].push_back(xzcn_point);
 			}
-			if (IN_RANGE(x, y)){
-				if (z <= z_arr[SCREEN_SPACE(x, y)]){
+			else if (IN_RANGE(x, y)){
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
-						//COLORREF png_c = BGR(c);
-						//m_pngHandle.SetValue(x, y, png_c);
 						m_pngHandle.SetValue(x, y, c);
 					}
 				}
@@ -937,24 +979,28 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y + 1;
 			}
+
 			z = LinePointDepth(p1, p2, x, y);
-			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
-			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
-			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+				n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) 
+				c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else 
+				c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
 			if (xy) {
 				xzcn_point.x = x;
 				xzcn_point.z = z;
 				xzcn_point.c = c;
 				xzcn_point.n = n;
 				(*x_y)[y].push_back(xzcn_point);
+				color_debug.push_back(c);
 			}
-			if (IN_RANGE(x, y)){
-				if (z <= z_arr[SCREEN_SPACE(x, y)]){
+			else if (IN_RANGE(x, y)){
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
-						//COLORREF png_c = BGR(c);
-						//m_pngHandle.SetValue(x, y, png_c);
 						m_pngHandle.SetValue(x, y, c);
 					}
 				}
@@ -977,20 +1023,18 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
 			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
 			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
-			if (xy && (incline != 0 || x == x2)) {
+			if (xy) {
 				xzcn_point.x = x;
 				xzcn_point.z = z;
 				xzcn_point.c = c;
 				xzcn_point.n = n;
 				(*x_y)[y].push_back(xzcn_point);
 			}
-			if (IN_RANGE(x, y)){
-				if (z <= z_arr[SCREEN_SPACE(x, y)]){
+			else if (IN_RANGE(x, y)){
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
-						//COLORREF png_c = BGR(c);
-						//m_pngHandle.SetValue(x, y, png_c);
 						m_pngHandle.SetValue(x, y, c);
 					}
 				}
@@ -1021,26 +1065,25 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				xzcn_point.n = n;
 				(*x_y)[y].push_back(xzcn_point);
 			}
-			if (IN_RANGE(x, y)){
-				if (z <= z_arr[SCREEN_SPACE(x, y)]){
+			else if (IN_RANGE(x, y)){
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
 					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
 					if (m_render_target == ID_RENDER_TOFILE){
-						//COLORREF png_c = BGR(c);
-						//m_pngHandle.SetValue(x, y, png_c);
 						m_pngHandle.SetValue(x, y, c);
 					}
 				}
 			}
 		}
 	}
+
 	return;
 }
 
 void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color){
 	vec4 p1, p2;
-	//std::vector<vec4> q;
 	std::unordered_map<int, std::vector<x_z_c_n_point>> x_y;
+	COLORREF c1, c2;
 
 	////////////////////////////////////////////
 	// create the normal of this polygon
@@ -1053,27 +1096,26 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 		p2_normal_line = p1_normal_line = p.Normal(!m_override_normals);
 		vec4 normal_pa = p1_normal_line.p_a * cur_transform;
 		vec4 normal_pb = p1_normal_line.p_b * cur_transform;
-		p1_normal = (normal_pa / normal_pa.p) - (normal_pb / normal_pb.p);
+		p1_normal = (normal_pb / normal_pb.p) - (normal_pa / normal_pa.p);
 	}
 
 	////////////////////////////////////////////
 	// "draw" the lines on screen and save where the x's of each y row are
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	c1 = c2 = color;
+	vec4 p1_normal_pa, p1_normal_pb, p2_normal_pa, p2_normal_pb;
 	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
 		p1 = p.points[pnt];
-		if (pnt + 1 == p.points.size()) p2 = p.points[0];
-		else p2 = p.points[pnt + 1];
-		COLORREF c1 = color;
-		COLORREF c2 = color;
+		p2 = p.points[(pnt + 1) % p.points.size()];
 		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD || m_nLightShading == ID_LIGHT_SHADING_PHONg){
 			p1_normal_line = p.VertexNormal(!m_override_normals)[p1];
 			p2_normal_line = p.VertexNormal(!m_override_normals)[p2];
-			vec4 p1_normal_pa = p1_normal_line.p_a * cur_transform;
-			vec4 p1_normal_pb = p1_normal_line.p_b * cur_transform;
-			vec4 p2_normal_pa = p2_normal_line.p_a * cur_transform;
-			vec4 p2_normal_pb = p2_normal_line.p_b * cur_transform;
-			p1_normal = (p1_normal_pa / p1_normal_pa.p) - (p1_normal_pb / p1_normal_pb.p);
-			p2_normal = (p2_normal_pa / p2_normal_pa.p) - (p2_normal_pb / p2_normal_pb.p);
+			p1_normal_pa = p1_normal_line.p_a * cur_transform;
+			p1_normal_pb = p1_normal_line.p_b * cur_transform;
+			p2_normal_pa = p2_normal_line.p_a * cur_transform;
+			p2_normal_pb = p2_normal_line.p_b * cur_transform;
+			p1_normal = (p1_normal_pb / p1_normal_pb.p) - (p1_normal_pa / p1_normal_pa.p);
+			p2_normal = (p2_normal_pb / p2_normal_pb.p) - (p2_normal_pa / p2_normal_pa.p);
 		}
 		p1 = p1 * cur_transform;
 		p2 = p2 * cur_transform;
@@ -1081,13 +1123,13 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			c1 = ApplyLight(color, p1_normal, p1 / p1.p);
 			c2 = ApplyLight(color, p2_normal, p2 / p2.p);
 		}
-		//q.push_back(p1 / p1.p);
 
 		// skip polygons behind the camera
 		if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
 			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 			return;
+		if (m_back_face_culling && p1_normal.z > 0) return;
 		DrawLine(z_arr, arr, p1, p2, c1, &p1_normal, c2, &p2_normal, &x_y);
 	}
 	
@@ -1095,46 +1137,44 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 	// z_buffer drawing
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	vec4 scan_p1, scan_p2 ,n1 ,n2;
-	COLORREF c1, c2;
+	COLORREF c;
 	double z;
 	for (auto iter = x_y.begin(); iter != x_y.end(); ++iter){
 		std::sort(iter->second.begin(), iter->second.end());
 		int y = iter->first;
-		bool draw = true;
-		for (unsigned int i = 0; i <= iter->second.size() - 2; i++){
-			if (iter->second.size() > 1){
-				scan_p1 = vec4(iter->second[i].x, y, iter->second[i].z, 1);
-				scan_p2 = vec4(iter->second[i +1].x, y, iter->second[i + 1].z, 1);
-				c1 = iter->second[i].c;
-				c2 = iter->second[i + 1].c;
-				n1 = iter->second[i].n;
-				n2 = iter->second[i + 1].n;
-				for (int x = static_cast<int>(iter->second[i].x); x <= iter->second[i + 1].x; x++){
-					if (IN_RANGE(x, y) && draw){
-						z = LinePointDepth(scan_p1, scan_p2, x, y);
-						if (z <= z_arr[SCREEN_SPACE(x, y)]){
-							vec4 n = p1_normal;
-							if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(scan_p1, scan_p2, n1, n2, x, y);
-							if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) arr[SCREEN_SPACE(x, y)] = LinePointLight(scan_p1, scan_p2, c1, c2, x, y);
-							else arr[SCREEN_SPACE(x, y)] = ApplyLight(color, n, vec4(x, y, z, 1));
-							z_arr[SCREEN_SPACE(x, y)] = z;
-							if (m_render_target == ID_RENDER_TOFILE){
-								//COLORREF png_c = BGR(arr[SCREEN_SPACE(x, y)]);
-								//m_pngHandle.SetValue(x, y, png_c);
-								m_pngHandle.SetValue(x, y, arr[SCREEN_SPACE(x, y)]);
-							}
+		if (iter->second.size() > 1){
+			scan_p1 = vec4(iter->second[0].x, y, iter->second[0].z, 1);
+			scan_p2 = vec4(iter->second[iter->second.size() - 1].x, y, iter->second[iter->second.size() - 1].z, 1);
+			c1 = iter->second[0].c;
+			c2 = iter->second[iter->second.size() - 1].c;
+			n1 = iter->second[0].n;
+			n2 = iter->second[iter->second.size() - 1].n;
+			for (int x = static_cast<int>(iter->second[0].x); x <= iter->second[iter->second.size() - 1].x; x++){
+				if (IN_RANGE(x, y)){
+					z = LinePointDepth(scan_p1, scan_p2, x, y);
+					if (z < z_arr[SCREEN_SPACE(x, y)]){
+						vec4 n = p1_normal;
+						if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+							n = LinePointNormal(scan_p1, scan_p2, n1, n2, x, y);
+						if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD)
+							c = LinePointLight(scan_p1, scan_p2, c1, c2, x, y);
+						else
+							c = ApplyLight(color, n, vec4(x, y, z, 1));
+
+						arr[SCREEN_SPACE(x, y)] = c;
+						z_arr[SCREEN_SPACE(x, y)] = z;
+
+						if (m_render_target == ID_RENDER_TOFILE){
+							m_pngHandle.SetValue(x, y, arr[SCREEN_SPACE(x, y)]);
 						}
 					}
 				}
 			}
 		}
-		draw = !draw;
 	}
 }
 
 void CCGWorkView::DrawBoundBox(double *z_arr, COLORREF *arr, model &model, mat4 cur_transform, COLORREF color){
-
-	//mat4 cur_transform = model.obj_coord_trans * model.view_space_trans * m_screen_space_trans;
 
 	double minx = model.min_vec.x;
 	double miny = model.min_vec.y;
@@ -1220,9 +1260,9 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 				//diffuse light from source
 				// when the normal is facing the light source, add the calculation
 				// when the normal is not facing the light source, ignore it
-				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
 
 				//specular light from source
 				//...
@@ -1241,9 +1281,9 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 				//diffuse light from source
 				// when the normal is facing the light source, add the calculation
 				// when the normal is not facing the light source, ignore it
-				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
 
 				//specular light from source
 				//...
@@ -1285,16 +1325,15 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 		}
 	}
 
-	COLORREF out_color = RGB(static_cast<int>(min(red_inentsity, 255)),
-						 	 static_cast<int>(min(grn_inentsity, 255)),
-							 static_cast<int>(min(blu_inentsity, 255)));
+	COLORREF out_color = RGB(static_cast<int>(max(min(red_inentsity, 255), 0)),
+						 	 static_cast<int>(max(min(grn_inentsity, 255), 0)),
+							 static_cast<int>(max(min(blu_inentsity, 255), 0)));
 	return out_color;
 }
 
 void CCGWorkView::SetBackgound(){
 	if (m_active_background && m_valid_background){
 		int bpp = m_pngBackground.GetNumChannels();
-		int screen_indx;
 		int cur_color;
 		int pic_width = m_pngBackground.GetWidth();
 		int pic_height = m_pngBackground.GetHeight();
@@ -1941,7 +1980,7 @@ void CCGWorkView::OnRenderToscreen()
 {
 	m_render_target = ID_RENDER_TOSCREEN;
 	m_WindowHeight = m_OriginalWindowHeight;
-	m_WindowHeight = m_OriginalWindowWidth;
+	m_WindowWidth = m_OriginalWindowWidth;
 	Invalidate();
 }
 
@@ -2060,3 +2099,4 @@ void CCGWorkView::OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI)
 	pCmdUI->SetCheck(m_silhouette);
 
 }
+
