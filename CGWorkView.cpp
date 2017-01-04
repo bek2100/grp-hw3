@@ -1135,6 +1135,8 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			p2_normal = (p2_normal_pb / p2_normal_pb.p) - (p2_normal_pa / p2_normal_pa.p);
 			p2_normal = p2_normal * m_inverse;
 		}
+		p1 = p1 * cur_transform;
+		p2 = p2 *cur_transform;
 		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD){
 			c1 = ApplyLight(color, p1_normal, p1 / p1.p);
 			c2 = ApplyLight(color, p2_normal, p2 / p2.p);
