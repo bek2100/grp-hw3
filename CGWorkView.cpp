@@ -180,7 +180,7 @@ CCGWorkView::CCGWorkView()
 	m_valid_background = false;
 	m_silhouette = false;
 	m_back_face_culling = false;
-	m_silhouette_thickness = 10;
+	m_silhouette_thickness = 30;
 	m_speculr_n = 2;
 
 	// initilize the cameras' position and direction in the view space
@@ -392,7 +392,7 @@ void CCGWorkView::OnDraw(CDC* pDC)
 
 	m_prespective_trans[0][0] = 1;
 	m_prespective_trans[1][1] = 1;
-	m_prespective_trans[2][2] = screen_space_d / (screen_space_d - screen_space_alpha);
+	m_prespective_trans[2][2] = m_presepctive_d + screen_space_d / (screen_space_d - screen_space_alpha);
 	m_prespective_trans[2][3] = 1 / screen_space_d;
 	m_prespective_trans[3][2] = -screen_space_alpha * screen_space_d / (screen_space_d - screen_space_alpha);
 
@@ -1085,7 +1085,7 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 	return;
 }
 
-void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 no_presp_trans, mat4 cur_transform, COLORREF color){
+void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
 	vec4 p1, p2;
 	std::unordered_map<int, std::vector<x_z_c_n_point>> x_y;
 	COLORREF c1, c2;
@@ -1095,8 +1095,8 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	line p1_normal_line;
 	line p2_normal_line;
-	vec4 p1_normal;
-	vec4 p2_normal;
+	vec4 p1_normal = vec4(0, 0, 0, 1);
+	vec4 p2_normal = vec4(0, 0, 0, 1);;
 	if (m_nLightShading == ID_LIGHT_SHADING_FLAT){
 		p2_normal_line = p1_normal_line = p.Normal(!m_override_normals);
 		if (p1_normal_line.p_a == p1_normal_line.p_b)
@@ -1135,8 +1135,6 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 			p2_normal = (p2_normal_pb / p2_normal_pb.p) - (p2_normal_pa / p2_normal_pa.p);
 			p2_normal = p2_normal * m_inverse;
 		}
-		p1 = p1 * cur_transform;
-		p2 = p2 * cur_transform;
 		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD){
 			c1 = ApplyLight(color, p1_normal, p1 / p1.p);
 			c2 = ApplyLight(color, p2_normal, p2 / p2.p);
@@ -1483,12 +1481,7 @@ void CCGWorkView::RenderScene() {
 	vec4 p1, p2;
 	polygon cur_polygon;
 	mat4 cur_transform;
-	mat4 no_presp_trans;
 	for (unsigned int m = 0; m < models.size(); m++){
-		no_presp_trans = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_screen_space_translate;
-
-		
-
 		m_cur_transform = models[m].camera_trans;
 		if (m_nView == ID_VIEW_ORTHOGRAPHIC){
 			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_screen_space_translate;
@@ -1502,14 +1495,14 @@ void CCGWorkView::RenderScene() {
 		if (render_type == ID_VIEW_SOLID || render_type == ID_VIEW_Z){
 			if (!m_back_face_culling){
 				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
-					ScanConversion(z_buffer, m_screen, models[m].polygons[pol], no_presp_trans, cur_transform, models[m].color);
+					ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
 				}
 			}
 			else{
 				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
 					p1 = models[m].polygons[pol].Normal(!m_override_normals).p_a * cur_transform;
 					p2 = models[m].polygons[pol].Normal(!m_override_normals).p_b * cur_transform;
-					if (p2.z / p2.p < p1.z / p1.p) ScanConversion(z_buffer, m_screen, models[m].polygons[pol], no_presp_trans, cur_transform, models[m].color);
+					if (p2.z / p2.p < p1.z / p1.p) ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
 				}
 			}
 		}
@@ -1576,7 +1569,16 @@ void CCGWorkView::RenderScene() {
 		}
 
 		if (m_silhouette){
-			std::unordered_map<vec4, int> fitting_normals;
+			std::unordered_map<line, int> line_appears_once;
+			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
+				for (unsigned int p = 0; p < models[m].polygons[count].points.size(); p++){
+					vec4 cur_vertex = models[m].polygons[count].points[p];
+					vec4 next_vertex = models[m].polygons[count].points[(p + 1) % models[m].polygons[count].points.size()];
+					line cur_line = line(cur_vertex, next_vertex);
+					line_appears_once[cur_line]++;
+				}
+			}
+			std::unordered_map<line, int> fitting_normals;
 			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
 				std::unordered_map<vec4, line> cur_normals = models[m].polygons[count].VertexNormal(!m_override_normals);
 				line pol_normal = models[m].polygons[count].Normal(!m_override_normals);
@@ -1587,25 +1589,17 @@ void CCGWorkView::RenderScene() {
 					vec4 cur_vertex = models[m].polygons[count].points[p];
 					vec4 next_vertex = models[m].polygons[count].points[(p + 1) % models[m].polygons[count].points.size()];
 					// 0 - none, 1- one positive, 2- one negative, 3 - both
-					if (fitting_normals[cur_vertex] == 0){
-						fitting_normals[cur_vertex] += polygon_normal_direction;
+					line cur_line = line(cur_vertex, next_vertex);
+					if (fitting_normals[cur_line] == 0){
+						fitting_normals[cur_line] += polygon_normal_direction;
 					}
-					else if (fitting_normals[cur_vertex] == 1 && polygon_normal_direction == 2){
-						fitting_normals[cur_vertex] += polygon_normal_direction;
+					else if (fitting_normals[cur_line] == 1 && polygon_normal_direction == 2){
+						fitting_normals[cur_line] += polygon_normal_direction;
 					}
-					else if (fitting_normals[cur_vertex] == 2 && polygon_normal_direction == 1){
-						fitting_normals[cur_vertex] += polygon_normal_direction;
+					else if (fitting_normals[cur_line] == 2 && polygon_normal_direction == 1){
+						fitting_normals[cur_line] += polygon_normal_direction;
 					}
-					if (fitting_normals[next_vertex] == 0){
-						fitting_normals[next_vertex] += polygon_normal_direction;
-					}
-					else if (fitting_normals[next_vertex] == 1 && polygon_normal_direction == 2){
-						fitting_normals[next_vertex] += polygon_normal_direction;
-					}
-					else if (fitting_normals[next_vertex] == 2 && polygon_normal_direction == 1){
-						fitting_normals[next_vertex] += polygon_normal_direction;
-					}
-					if (fitting_normals[next_vertex] == 3 && fitting_normals[cur_vertex] == 3){
+					if (fitting_normals[cur_line] == 3 || line_appears_once[cur_line] == 1){
 						p1 = cur_normals[cur_vertex].p_a;
 						p2 = cur_normals[cur_vertex].p_b;
 						vec4 p3 = cur_normals[next_vertex].p_b;
@@ -1613,14 +1607,14 @@ void CCGWorkView::RenderScene() {
 						p2 = p1 + (p2 - p1) * m_silhouette_thickness / m_WindowHeight;
 						p3 = p4 + (p3 - p4) * m_silhouette_thickness / m_WindowHeight;
 						
-						polygon p;
-						p.points.push_back(p1);
-						p.points.push_back(p2);
-						p.points.push_back(p3);
-						p.points.push_back(p4);
+						polygon pl;
+						pl.points.push_back(p1);
+						pl.points.push_back(p2);
+						pl.points.push_back(p3);
+						pl.points.push_back(p4);
 						int prev = m_nLightShading;
 						m_nLightShading = NULL;
-						ScanConversion(z_buffer, m_screen, p, no_presp_trans, cur_transform, m_silhouette_color);
+						ScanConversion(z_buffer, m_screen, pl, cur_transform, m_silhouette_color);
 						m_nLightShading = prev;
 					}
 				}
@@ -1831,17 +1825,19 @@ void CCGWorkView::OnWriteframeColor()
 	ColorSelectionDialog dlg(m_color_wireframe, m_boundbox_color, m_background_color, m_vertex_norm_color, m_polygon_norm_color, m_silhouette_color, m_silhouette_thickness);
 	if (dlg.DoModal() == IDOK){
 
-		m_color_wireframe = RGB(GetBValue(dlg.wireframe_color), GetGValue(dlg.wireframe_color), GetRValue(dlg.wireframe_color));
+		COLORREF new_m_color_wireframe = RGB(GetBValue(dlg.wireframe_color), GetGValue(dlg.wireframe_color), GetRValue(dlg.wireframe_color));
 		m_boundbox_color = RGB(GetBValue(dlg.boundbox_color), GetGValue(dlg.boundbox_color), GetRValue(dlg.boundbox_color));
 		m_background_color = RGB(GetBValue(dlg.background_color), GetGValue(dlg.background_color), GetRValue(dlg.background_color));
 		m_vertex_norm_color = RGB(GetBValue(dlg.vertex_norm_color), GetGValue(dlg.vertex_norm_color), GetRValue(dlg.vertex_norm_color));
 		m_polygon_norm_color = RGB(GetBValue(dlg.polygon_norm_color), GetGValue(dlg.polygon_norm_color), GetRValue(dlg.polygon_norm_color));
 		m_silhouette_color = RGB(GetBValue(dlg.silhouette_color), GetGValue(dlg.silhouette_color), GetRValue(dlg.silhouette_color));
 		m_silhouette_thickness = dlg.silhouette_thickness;
-
+		if (new_m_color_wireframe != m_color_wireframe){
+			m_color_wireframe = m_color_wireframe;
 		for (unsigned int m = 0; m < models.size(); m++){
 			models[m].color = m_color_wireframe;
 		}
+	}
 		Invalidate();
 	}
 }
@@ -2185,6 +2181,7 @@ void CCGWorkView::OnOptionsNormalinverse()
 void CCGWorkView::OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI)
 {
 	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_inverse == -1);
 }
 
 void CCGWorkView::OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI)
