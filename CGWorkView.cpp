@@ -1835,7 +1835,7 @@ void CCGWorkView::OnWriteframeColor()
 		m_silhouette_color = RGB(GetBValue(dlg.silhouette_color), GetGValue(dlg.silhouette_color), GetRValue(dlg.silhouette_color));
 		m_silhouette_thickness = dlg.silhouette_thickness;
 		if (new_m_color_wireframe != m_color_wireframe){
-			m_color_wireframe = m_color_wireframe;
+			m_color_wireframe = new_m_color_wireframe;
 		for (unsigned int m = 0; m < models.size(); m++){
 			models[m].color = m_color_wireframe;
 		}
