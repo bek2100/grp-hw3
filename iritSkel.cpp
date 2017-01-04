@@ -15,27 +15,7 @@ std::vector<model> models;
 int model_cnt;
 
 // line class hash
-namespace std
-{
-	template < >
-	struct hash<line>
-	{
-		size_t operator()(const line& p) const
-		{
-			// Compute individual hash values for two data members and combine them using XOR and bit shifting
-			return (hash<double>()(p.p_a.x + p.p_a.y+ p.p_a.z) + hash<double>()(p.p_b.x + p.p_b.y+ p.p_b.z));
-		}
-	};
-	//template < >
-	//struct hash<vec4>
-	//{
-	//	size_t operator()(const vec4& p) const
-	//	{
-	//		// Compute individual hash values for two data members and combine them using XOR and bit shifting
-	//		return (hash<double>()(p.x) + hash<double>()(p.y) + hash<double>()(p.z));
-	//	}
-	//};
-}
+
 std::unordered_map<line, int> lines;
 std::unordered_map<vec4, int> vertex;
 std::unordered_map<vec4, std::vector<polygon*>> vertex_polygons;

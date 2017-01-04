@@ -13,12 +13,8 @@ IMPLEMENT_DYNAMIC(ColorSelectionDialog, CDialogEx)
 
 ColorSelectionDialog::ColorSelectionDialog(CWnd* pParent /*=NULL*/)
 : CDialogEx(ColorSelectionDialog::IDD, pParent)
-, silhouette_thickness(0)
+, silhouette_thickness(0), boundbox_color(RGB(0, 0, 0)), wireframe_color(RGB(0, 0, 0)), background_color(RGB(0, 0, 0)), silhouette_color(RGB(0, 255, 255))
 {
-	boundbox_color = RGB(0, 0, 0);
-	wireframe_color = RGB(0, 0, 0);
-	background_color = RGB(0, 0, 0);
-	silhouette_color = RGB(0, 255, 255);
 }
 
 ColorSelectionDialog::ColorSelectionDialog(COLORREF m_color_wireframe, COLORREF m_boundbox_color, COLORREF m_background_color, COLORREF m_vertex_norm_color, COLORREF m_polygon_norm_color, COLORREF m_silhouette_color, double m_silhouette_thickness, CWnd* pParent)
