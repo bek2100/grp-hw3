@@ -180,7 +180,7 @@ CCGWorkView::CCGWorkView()
 	m_valid_background = false;
 	m_silhouette = false;
 	m_back_face_culling = false;
-	m_silhouette_thickness = 30;
+	m_silhouette_thickness = 0.01;
 	m_speculr_n = 2;
 
 	// initilize the cameras' position and direction in the view space
@@ -392,7 +392,7 @@ void CCGWorkView::OnDraw(CDC* pDC)
 
 	m_prespective_trans[0][0] = 1;
 	m_prespective_trans[1][1] = 1;
-	m_prespective_trans[2][2] = m_presepctive_d + screen_space_d / (screen_space_d - screen_space_alpha);
+	m_prespective_trans[2][2] = screen_space_d / (screen_space_d - screen_space_alpha);
 	m_prespective_trans[2][3] = 1 / screen_space_d;
 	m_prespective_trans[3][2] = -screen_space_alpha * screen_space_d / (screen_space_d - screen_space_alpha);
 
@@ -1570,6 +1570,11 @@ void CCGWorkView::RenderScene() {
 			}
 		}
 
+
+		if (m_bound_box){
+			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
+		}
+
 		if (m_silhouette){
 			std::unordered_map<line, int> line_appears_once;
 			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
@@ -1580,6 +1585,7 @@ void CCGWorkView::RenderScene() {
 					line_appears_once[cur_line]++;
 				}
 			}
+
 			std::unordered_map<line, int> fitting_normals;
 			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
 				std::unordered_map<vec4, line> cur_normals = models[m].polygons[count].VertexNormal(!m_override_normals);
@@ -1602,13 +1608,14 @@ void CCGWorkView::RenderScene() {
 						fitting_normals[cur_line] += polygon_normal_direction;
 					}
 					if (fitting_normals[cur_line] == 3 || line_appears_once[cur_line] == 1){
+
 						p1 = cur_normals[cur_vertex].p_a;
 						p2 = cur_normals[cur_vertex].p_b;
 						vec4 p3 = cur_normals[next_vertex].p_b;
 						vec4 p4 = cur_normals[next_vertex].p_a;
 						p2 = p1 + (p2 - p1) * m_silhouette_thickness / m_WindowHeight;
 						p3 = p4 + (p3 - p4) * m_silhouette_thickness / m_WindowHeight;
-						
+
 						polygon pl;
 						pl.points.push_back(p1);
 						pl.points.push_back(p2);
@@ -1616,15 +1623,12 @@ void CCGWorkView::RenderScene() {
 						pl.points.push_back(p4);
 						int prev = m_nLightShading;
 						m_nLightShading = NULL;
+						std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
 						ScanConversion(z_buffer, m_screen, pl, cur_transform, m_silhouette_color);
 						m_nLightShading = prev;
 					}
 				}
 			}
-		}
-
-		if (m_bound_box){
-			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
 		}
 	}
 
