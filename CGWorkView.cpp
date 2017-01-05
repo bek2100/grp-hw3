@@ -1486,11 +1486,11 @@ void CCGWorkView::RenderScene() {
 	for (unsigned int m = 0; m < models.size(); m++){
 		m_cur_transform = models[m].camera_trans;
 		if (m_nView == ID_VIEW_ORTHOGRAPHIC){
-			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_screen_space_translate;
+			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_screen_space_scale * m_screen_space_translate;
 			set_light_pos(models[m].camera_trans);
 		}
 		else if (m_nView == ID_VIEW_PERSPECTIVE){
-			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_scale * m_prespective_trans * m_screen_space_translate;
+			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_screen_space_scale * m_prespective_trans * m_screen_space_translate;
 			set_light_pos(models[m].camera_trans);
 		}
 

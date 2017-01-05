@@ -133,7 +133,7 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	depth_transpose[0][0] = 1;
 	depth_transpose[1][1] = 1;
 	depth_transpose[2][2] = 1;
-	depth_transpose[3][2] = 8;
+	depth_transpose[3][2] = 4;
 
 	depth_transpose[3][3] = 1;
 
@@ -145,8 +145,8 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	CString file_name = file_full_name.Tokenize(_T("."), n_tokens_pos);
 	for (int m = 0; m < model_cnt; m++){
 		models.rbegin()[m].view_space_trans = view_space_scale;
-		models.rbegin()[m].camera_trans = depth_transpose;
 		indx.Format(_T("%d"), m);
+		models.rbegin()[m].prespective_translate = depth_transpose;
 		models.rbegin()[m].model_name = file_name + indx;
 	}
 
