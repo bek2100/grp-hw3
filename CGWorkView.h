@@ -41,6 +41,7 @@ private:
 	int m_nAxis;				// Axis of Action, X Y or Z
 	int m_nAction;				// Rotate, Translate, Scale
 	int m_nView;				// Orthographic, perspective
+	int m_nLightView;			// Point light view
 	int polygon_normal;
 	int vertex_normal;
 	bool given_polygon_normal;
@@ -51,6 +52,7 @@ private:
 	bool m_override_normals;
 	bool m_back_face_culling;
 	bool m_silhouette;
+	bool m_light_view;
 	double m_silhouette_thickness;
 	
 	CString m_strItdFileName;		// file name of IRIT data
@@ -80,6 +82,7 @@ private:
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
 	void SetBackgound();
+	void RenderLightScene();
 	void set_light_pos(mat4 view_space_trans);
 	double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y);
 
@@ -241,6 +244,14 @@ public:
 	afx_msg void OnOptionsOverridegivennormal();
 	afx_msg void OnOptionsAddsilhouette();
 	afx_msg void OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI);
+	afx_msg void OnLightLight1pov();
+	afx_msg void OnUpdateLightLight1pov(CCmdUI *pCmdUI);
+	afx_msg void OnLight1povZ();
+	afx_msg void OnLight1povY();
+	afx_msg void OnLight1povX();
+	afx_msg void OnLight1povNegX();
+	afx_msg void OnLight1povNegY();
+	afx_msg void OnLight1povNegZ();
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp

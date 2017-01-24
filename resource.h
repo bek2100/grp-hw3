@@ -109,14 +109,26 @@
 #define ID_OPTIONS_OVERRIDEGIVENNORMAL  32840
 #define ID_OPTIONS_ADDSILHOUETTE        32841
 #define IDC_BUTTON6                     32842
+#define ID_LIGHT1POV                    32842
 #define IDC_SILLHUOTTE_THICKNESS        32843
+#define ID_LIGHT_LIGHT1POV              32843
+#define ID_LIGHT1POV_X                  32844
+#define ID_LIGHT1POV_                   32845
+#define ID_LIGHT1POV_Y                  32846
+#define ID_LIGHT1POV_32847              32847
+#define ID_LIGHT1POV_Z                  32848
+#define ID_LIGHT1POV_32849              32849
+#define ID_LIGHT1POV_NEG_Z              32850
+#define ID_LIGHT1POV_NEG_Y              32851
+#define ID_LIGHT1POV_NEG_X              32852
+#define ID_LIGHT_LIGHT1VIEW             32853
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        144
-#define _APS_NEXT_COMMAND_VALUE         32841
+#define _APS_NEXT_COMMAND_VALUE         32854
 #define _APS_NEXT_CONTROL_VALUE         1058
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
