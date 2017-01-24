@@ -119,6 +119,17 @@ BEGIN
             MENUITEM "Phong",                       ID_LIGHT_SHADING_PHONg
         END
         MENUITEM "&Parameters...",              ID_LIGHT_CONSTANTS
+        MENUITEM SEPARATOR
+        POPUP "Light 1 POV"
+        BEGIN
+            MENUITEM "X",                           ID_LIGHT1POV_X
+            MENUITEM "NEG_X",                       ID_LIGHT1POV_NEG_X
+            MENUITEM "Y",                           ID_LIGHT1POV_Y
+            MENUITEM "NEG_Y",                       ID_LIGHT1POV_NEG_Y
+            MENUITEM "Z",                           ID_LIGHT1POV_Z
+            MENUITEM "NEG_Z",                       ID_LIGHT1POV_NEG_Z
+        END
+        MENUITEM "Light 1 View",                ID_LIGHT_LIGHT1VIEW
     END
     POPUP "Normal"
     BEGIN

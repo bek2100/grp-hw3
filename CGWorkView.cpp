@@ -135,6 +135,14 @@ BEGIN_MESSAGE_MAP(CCGWorkView, CView)
 	ON_COMMAND(ID_OPTIONS_OVERRIDEGIVENNORMAL, &CCGWorkView::OnOptionsOverridegivennormal)
 	ON_COMMAND(ID_OPTIONS_ADDSILHOUETTE, &CCGWorkView::OnOptionsAddsilhouette)
 	ON_UPDATE_COMMAND_UI(ID_OPTIONS_ADDSILHOUETTE, &CCGWorkView::OnUpdateOptionsAddsilhouette)
+	ON_COMMAND(ID_LIGHT_LIGHT1VIEW, &CCGWorkView::OnLightLight1pov)
+	ON_UPDATE_COMMAND_UI(ID_LIGHT_LIGHT1VIEW, &CCGWorkView::OnUpdateLightLight1pov)
+	ON_COMMAND(ID_LIGHT1POV_Z, &CCGWorkView::OnLight1povZ)
+	ON_COMMAND(ID_LIGHT1POV_Y, &CCGWorkView::OnLight1povY)
+	ON_COMMAND(ID_LIGHT1POV_X, &CCGWorkView::OnLight1povX)
+	ON_COMMAND(ID_LIGHT1POV_NEG_X, &CCGWorkView::OnLight1povNegX)
+	ON_COMMAND(ID_LIGHT1POV_NEG_Y, &CCGWorkView::OnLight1povNegY)
+	ON_COMMAND(ID_LIGHT1POV_NEG_Z, &CCGWorkView::OnLight1povNegZ)
 END_MESSAGE_MAP()
 
 
@@ -201,6 +209,8 @@ CCGWorkView::CCGWorkView()
 	m_render_target = ID_RENDER_TOSCREEN;
 
 	m_background_type = ID_BACKGROUND_REPEAT;
+	m_light_view = false;
+	m_nLightView = ID_LIGHT1POV_Z;
 	//init the coesffiecents of the lights
 	m_ambient_k = 0.3;
 	m_diffuse_k = 0.7;
@@ -387,7 +397,7 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	mat4 reset;
 	m_prespective_trans = reset;
 
-	double screen_space_d = m_presepctive_d * (double)min_axis*0.6;
+	double screen_space_d = (double)m_presepctive_d * 0.6;
 	double screen_space_alpha = 0.6 * screen_space_d;
 
 	m_prespective_trans[0][0] = 1;
@@ -1441,9 +1451,9 @@ void CCGWorkView::set_light_pos(mat4 view_space_trans){
 			pos.p = 1;
 
 			if (m_lights[l].space)
-				pos = pos * view_space_trans;
+				pos = pos * view_space_trans * m_screen_space_scale * m_screen_space_translate;
 			else
-				pos = pos;
+				pos = pos * m_screen_space_scale * m_screen_space_translate;
 
 			m_lights[l].rel_pos = pos / pos.p;
 
@@ -1453,14 +1463,18 @@ void CCGWorkView::set_light_pos(mat4 view_space_trans){
 			pos.p = 1;
 
 			if (m_lights[l].space)
-				pos = pos * view_space_trans;
+				pos = pos * view_space_trans * m_screen_space_scale * m_screen_space_translate;
 			else
-				pos = pos;
+				pos = pos * m_screen_space_scale * m_screen_space_translate;
 
 			m_lights[l].rel_dir = pos / pos.p;
 
 		}
 	}
+}
+
+void CCGWorkView::RenderLightScene(){
+	// TODO: render scence for light
 }
 
 void CCGWorkView::RenderScene() {
@@ -1487,11 +1501,64 @@ void CCGWorkView::RenderScene() {
 		m_cur_transform = models[m].camera_trans;
 		if (m_nView == ID_VIEW_ORTHOGRAPHIC){
 			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_screen_space_scale * m_screen_space_translate;
-			set_light_pos(models[m].camera_trans);
+			set_light_pos(models[m].camera_trans * models[m].prespective_translate);
 		}
 		else if (m_nView == ID_VIEW_PERSPECTIVE){
-			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_screen_space_scale * m_prespective_trans * m_screen_space_translate;
-			set_light_pos(models[m].camera_trans);
+			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_prespective_trans * m_screen_space_scale * m_screen_space_translate;
+			set_light_pos(models[m].camera_trans * models[m].prespective_translate);
+		}
+		if (m_light_view){
+			mat4 light_translate;
+			mat4 light_coord_system;
+			light_translate[0][0] = 1;
+			light_translate[3][0] = m_lights->posX;
+
+			light_translate[1][1] = 1;
+			light_translate[3][1] = m_lights->posY;
+
+			light_translate[2][2] = 1;
+			light_translate[3][2] = m_lights->posZ;
+
+			light_translate[3][3] = 1;
+			
+			if (m_nLightView == ID_LIGHT1POV_Z){
+				light_coord_system[0][0] = -1;
+				light_coord_system[1][1] = 1;
+				light_coord_system[2][2] = -1;
+				light_coord_system[3][3] = 1;
+			}
+			else if (m_nLightView == ID_LIGHT1POV_NEG_Z){
+				light_coord_system[0][0] = 1;
+				light_coord_system[1][1] = 1;
+				light_coord_system[2][2] = 1;
+				light_coord_system[3][3] = 1;
+			}
+			else if (m_nLightView == ID_LIGHT1POV_Y){
+				light_coord_system[0][0] = 1;
+				light_coord_system[1][2] = -1;
+				light_coord_system[2][1] = 1;
+				light_coord_system[3][3] = 1;
+			}
+			else if (m_nLightView == ID_LIGHT1POV_NEG_Y){
+				light_coord_system[0][0] = 1;
+				light_coord_system[1][2] = 1;
+				light_coord_system[2][1] = -1;
+				light_coord_system[3][3] = 1;
+			}
+			else if (m_nLightView == ID_LIGHT1POV_X){
+				light_coord_system[0][2] = -1;
+				light_coord_system[1][1] = 1;
+				light_coord_system[2][0] = 1;
+				light_coord_system[3][3] = 1;
+			}
+			else if (m_nLightView == ID_LIGHT1POV_NEG_X){
+				light_coord_system[0][2] = 1;
+				light_coord_system[1][1] = 1;
+				light_coord_system[2][0] = -1;
+				light_coord_system[3][3] = 1;
+			}
+
+			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * light_translate * light_coord_system * m_prespective_trans * m_screen_space_scale * m_screen_space_translate;
 		}
 
 		if (render_type == ID_VIEW_SOLID || render_type == ID_VIEW_Z){
@@ -1561,8 +1628,6 @@ void CCGWorkView::RenderScene() {
 
 				p2 = p2 * cur_transform;
 				
-				
-
 				int prev_shading = m_nLightShading;
 				m_nLightShading = ID_LIGHT_SHADING_FLAT;
 				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color, &psudo_normal);
@@ -1574,8 +1639,13 @@ void CCGWorkView::RenderScene() {
 		if (m_bound_box){
 			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
 		}
+	}
 
-		if (m_silhouette){
+
+	if (m_silhouette){
+		std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
+		for (unsigned int m = 0; m < models.size(); m++){
+
 			std::unordered_map<line, int> line_appears_once;
 			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
 				for (unsigned int p = 0; p < models[m].polygons[count].points.size(); p++){
@@ -1623,7 +1693,6 @@ void CCGWorkView::RenderScene() {
 						pl.points.push_back(p4);
 						int prev = m_nLightShading;
 						m_nLightShading = NULL;
-						std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
 						ScanConversion(z_buffer, m_screen, pl, cur_transform, m_silhouette_color);
 						m_nLightShading = prev;
 					}
@@ -1751,7 +1820,6 @@ void CCGWorkView::OnActionResetView()
 	reset_transform[0][0] = 1;
 	reset_transform[1][1] = 1;
 	reset_transform[2][2] = 1;
-	reset_transform[3][2] = 1;
 	reset_transform[3][3] = 1;
 
 	m_tarnsform = reset_transform;
@@ -2211,8 +2279,61 @@ void CCGWorkView::OnOptionsAddsilhouette()
 
 void CCGWorkView::OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(m_silhouette);
-
 }
+
+
+
+void CCGWorkView::OnLightLight1pov()
+{
+	// TODO: Add your command handler code here
+	m_light_view = !m_light_view;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnUpdateLightLight1pov(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_light_view);
+}
+
+
+void CCGWorkView::OnLight1povZ()
+{
+	m_nLightView = ID_LIGHT1POV_Z;
+	Invalidate();
+}
+
+void CCGWorkView::OnLight1povNegZ()
+{
+	m_nLightView = ID_LIGHT1POV_NEG_Z;
+	Invalidate();
+}
+
+void CCGWorkView::OnLight1povY()
+{
+	m_nLightView = ID_LIGHT1POV_Y;
+	Invalidate();
+}
+
+void CCGWorkView::OnLight1povNegY()
+{
+	m_nLightView = ID_LIGHT1POV_NEG_Y;
+	Invalidate();
+}
+
+void CCGWorkView::OnLight1povX()
+{
+	m_nLightView = ID_LIGHT1POV_X;
+	Invalidate();
+}
+
+
+void CCGWorkView::OnLight1povNegX()
+{
+	m_nLightView = ID_LIGHT1POV_NEG_X;
+	Invalidate();
+}
+
+
 
