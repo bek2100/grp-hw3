@@ -15,30 +15,10 @@ std::vector<model> models;
 int model_cnt;
 
 // line class hash
-namespace std
-{
-	template < >
-	struct hash<line>
-	{
-		size_t operator()(const line& p) const
-		{
-			// Compute individual hash values for two data members and combine them using XOR and bit shifting
-			return (hash<double>()(p.p_a.x + p.p_a.y+ p.p_a.z) + hash<double>()(p.p_b.x + p.p_b.y+ p.p_b.z));
-		}
-	};
-	template < >
-	struct hash<vec4>
-	{
-		size_t operator()(const vec4& p) const
-		{
-			// Compute individual hash values for two data members and combine them using XOR and bit shifting
-			return (hash<double>()(p.x) + hash<double>()(p.y) + hash<double>()(p.z));
-		}
-	};
-}
+
 std::unordered_map<line, int> lines;
 std::unordered_map<vec4, int> vertex;
-std::unordered_map<vec4, std::vector<polygon>> vertex_polygons;
+std::unordered_map<vec4, std::vector<polygon*>> vertex_polygons;
 
 IPFreeformConvStateStruct CGSkelFFCState = {
 	FALSE,          /* Talkative */
@@ -148,6 +128,15 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	view_space_scale[1][1] = (double)1 / max_box;
 	view_space_scale[2][2] = (double)1 / max_box;
 	view_space_scale[3][3] = 1;
+
+	mat4 depth_transpose;
+	depth_transpose[0][0] = 1;
+	depth_transpose[1][1] = 1;
+	depth_transpose[2][2] = 1;
+	depth_transpose[3][2] = 4;
+
+	depth_transpose[3][3] = 1;
+
 	
 	CString indx;
 	CString file_full_name = FileNames.Mid(FileNames.ReverseFind('\\') + 1);
@@ -157,6 +146,7 @@ bool CGSkelProcessIritDataFiles(CString &FileNames, int NumFiles)
 	for (int m = 0; m < model_cnt; m++){
 		models.rbegin()[m].view_space_trans = view_space_scale;
 		indx.Format(_T("%d"), m);
+		models.rbegin()[m].prespective_translate = depth_transpose;
 		models.rbegin()[m].model_name = file_name + indx;
 	}
 
@@ -305,18 +295,19 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				if (temp_vert.z > max_vec.z || models.back().polygons.front().points.size() == 0) max_vec.z = temp_vert.z;
 
 				models.back().polygons[poly_cnt].points.push_back(temp_vert); // create an additional vertex
-
 				
-				if (vertex[temp_vert] == 0){
-					vertex[temp_vert] ++;
-					if (IP_HAS_NORMAL_VRTX(PVertex)){
-						vec4 vertex;
-						vertex[0] = PVertex->Normal[0];
-						vertex[1] = PVertex->Normal[1];
-						vertex[2] = PVertex->Normal[2];
-						vertex[3] = 0.0; // scale fix when adding on line below
-						models.back().vertex_normals_list.push_back(line(temp_vert, temp_vert + vertex));
+				if (IP_HAS_NORMAL_VRTX(PVertex)){
+					vec4 vertex1;
+					vertex1[0] = PVertex->Normal[0];
+					vertex1[1] = PVertex->Normal[1];
+					vertex1[2] = PVertex->Normal[2];
+					vertex1[3] = 0.0; // scale fix when adding on line below
+					if (vertex[temp_vert] == 0){
+						vertex[temp_vert] ++;
+						models.back().vertex_normals_list.push_back(line(temp_vert, temp_vert + vertex1));
 					}
+
+					models.back().polygons[poly_cnt].vertexNormalsGiven[temp_vert] = line(temp_vert, temp_vert + vertex1);
 				}
 
 
@@ -334,7 +325,6 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 
 	for (unsigned int p = 0; p < models.back().polygons.size(); p++){
 		for (unsigned int pnt = 0; pnt < models.back().polygons[p].points.size(); pnt++){
-			
 			p1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
 			p2 = models.back().polygons[p].points[(pnt + 1) % models.back().polygons[p].points.size()];
 			cur_line = line(p1, p2);
@@ -342,24 +332,26 @@ bool CGSkelStoreData(IPObjectStruct *PObj)
 				models.back().points_list.push_back(cur_line);
 				lines[cur_line]++;
 			}
-			vertex_polygons[p1].push_back(models.back().polygons[p]);
+			vertex_polygons[p1].push_back(&models.back().polygons[p]);
 		}
 	}
 
 	for (unsigned int p = 0; p < models.back().polygons.size(); p++){
 		for (unsigned int pnt = 0; pnt < models.back().polygons[p].points.size(); pnt++){
-			vec4 pp_1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
-			vec4 pp_2;
-			if (vertex[pp_1] == 1){
-				vertex[pp_1]++;
-				vec4 avr;
-				for (unsigned int j = 0; j <vertex_polygons[pp_1].size(); j++){
-					avr = avr + vertex_polygons[pp_1][j].Normal_Val(false);
+			p1 = models.back().polygons[p].points[(pnt) % models.back().polygons[p].points.size()];
+			if (vertex[p1] <= 1){
+				vertex[p1]++;
+				vec4 avr = vec4(0,0,0,0);
+				for (unsigned int j = 0; j <vertex_polygons[p1].size(); j++){
+					avr = avr + vertex_polygons[p1][j]->Normal_Val(false);
 				}
-				avr = avr / vertex_polygons[pp_1].size();
-				pp_2 = pp_1 + avr;
-				pp_2[3] = 1;
-				cur_line = line(pp_1, pp_2);
+				avr = avr / vertex_polygons[p1].size();
+				p2 = p1 + avr;
+				p2[3] = 1;
+				cur_line = line(p1, p2);
+				for (unsigned int j = 0; j < vertex_polygons[p1].size(); j++){
+					vertex_polygons[p1][j]->vertexNormalsCalculated[p1] = cur_line;
+				}
 				models.back().vertex_normals_list_polygons.push_back(cur_line);
 			}
 		}

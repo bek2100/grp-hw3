@@ -81,6 +81,9 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Orthographic",               ID_VIEW_ORTHOGRAPHIC
         MENUITEM "&Perspective",                ID_VIEW_PERSPECTIVE
+        MENUITEM "Wireframe",                   ID_VIEW_WIREFRAME
+        MENUITEM "Solid",                       ID_VIEW_SOLID
+        MENUITEM "Z-Buffer",                    ID_VIEW_Z
     END
     POPUP "A&ction"
     BEGIN
@@ -88,7 +91,7 @@ BEGIN
         MENUITEM "&Translate",                  ID_ACTION_TRANSLATE
         MENUITEM "&Scale",                      ID_ACTION_SCALE
         MENUITEM "Reset view",                  ID_ACTION_RESETVIEW
-        MENUITEM "Clear All",                   ID_VERTEX_CALCULATED
+        MENUITEM "Clear All",                   ID_ACTION_CLEARALL
     END
     POPUP "A&xis"
     BEGIN
@@ -102,6 +105,10 @@ BEGIN
         MENUITEM "Perspective Control...",      ID_OPTIONS_PERSPECTIVECONTROL
         MENUITEM "Mouse Sensitivity...",        ID_OPTIONS_MOUSESENSITIVITY
         MENUITEM "Other Options...",            ID_OPTIONS_OTHEROPTIONS
+        MENUITEM "Back Face Culling",           ID_OPTIONS_BACKFACECULLING
+        MENUITEM "Normal Inverse",              ID_OPTIONS_NORMALINVERSE
+        MENUITEM "Override Given Normals",      ID_OPTIONS_OVERRIDEGIVENNORMAL
+        MENUITEM "Add Silhouette",              ID_OPTIONS_ADDSILHOUETTE
     END
     POPUP "&Light"
     BEGIN
@@ -109,13 +116,9 @@ BEGIN
         BEGIN
             MENUITEM "&Flat",                       ID_LIGHT_SHADING_FLAT
             MENUITEM "&Gouraud",                    ID_LIGHT_SHADING_GOURAUD
-            MENUITEM "Phong",                       ID_POLYGON_GIVEN
+            MENUITEM "Phong",                       ID_LIGHT_SHADING_PHONg
         END
         MENUITEM "&Parameters...",              ID_LIGHT_CONSTANTS
-    END
-    POPUP "&Help"
-    BEGIN
-        MENUITEM "&About CGWork...",            ID_APP_ABOUT
     END
     POPUP "Normal"
     BEGIN
@@ -132,8 +135,20 @@ BEGIN
     END
     POPUP "Render"
     BEGIN
-        MENUITEM "On Screen",                   ID_POLYGON_CALCULATED
+        MENUITEM "On Screen",                   ID_RENDER_TOSCREEN
         MENUITEM "To File",                     ID_RENDER_TOFILE
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About CGWork...",            ID_APP_ABOUT
+    END
+    POPUP "Background"
+    BEGIN
+        MENUITEM "Set Image...",                ID_BACKGROUND_SETIMAGE
+        MENUITEM "Active",                      ID_BACKGROUND_ACTIVE
+        MENUITEM SEPARATOR
+        MENUITEM "Repeat",                      ID_BACKGROUND_REPEAT
+        MENUITEM "Stretch",                     ID_BACKGROUND_STRETCH
     END
 END
 
@@ -231,12 +246,14 @@ BEGIN
     COMBOBOX        IDC_LIGHT_SPACE,111,61,59,40,CBS_DROPDOWN | WS_TABSTOP
     LTEXT           "Space:",IDC_STATIC,66,64,23,8
     EDITTEXT        IDC_AMBIENT_MOD,24,199,34,12,ES_AUTOHSCROLL
-    EDITTEXT        IDC_SPECULAR_MOD,178,199,34,12,ES_AUTOHSCROLL
-    EDITTEXT        IDC_DIFFUSE_MOD,96,199,34,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_SPECULAR_MOD,134,199,34,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_DIFFUSE_MOD,80,199,34,12,ES_AUTOHSCROLL
     LTEXT           "Ambient Modifier",IDC_STATIC,12,185,54,8
-    LTEXT           "Diffuse Modifier",IDC_STATIC,85,185,51,8
+    LTEXT           "Diffuse Modifier",IDC_STATIC,70,185,51,8
     GROUPBOX        "",IDC_STATIC,7,176,224,38
-    LTEXT           "Specular Modifier",IDC_STATIC,171,184,56,8
+    LTEXT           "Specular Modifier",IDC_STATIC,125,185,56,8
+    LTEXT           "Specular n",IDC_STATIC,188,185,34,8
+    EDITTEXT        IDC_SPECULAR_N,186,198,40,14,ES_AUTOHSCROLL
 END
 
 IDD_MATERIAL_DLG DIALOGEX 0, 0, 307, 138
@@ -276,12 +293,15 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,198,156,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,252,156,50,14
-    PUSHBUTTON      "Wireframe",IDC_BUTTON1,12,42,50,14
+    PUSHBUTTON      "Model",IDC_BUTTON1,12,42,50,14
     PUSHBUTTON      "Background",IDC_BUTTON2,132,42,50,14
     PUSHBUTTON      "Boundbox",IDC_BUTTON3,246,42,50,14
     LTEXT           "Color Selection",IDC_STATIC,132,11,48,8
     PUSHBUTTON      "PolygonNorm",IDC_BUTTON4,131,70,50,14
     PUSHBUTTON      "VertexNorm",IDC_BUTTON5,12,70,50,14
+    PUSHBUTTON      "Silhouette",IDC_BUTTON6,245,70,50,14
+    EDITTEXT        IDC_SILLHUOTTE_THICKNESS,98,100,37,14,ES_AUTOHSCROLL
+    LTEXT           "Silhouette thickness:",IDC_STATIC,20,104,76,8
 END
 
 IDD_PRESPECTIVE_DLG DIALOGEX 0, 0, 309, 58
@@ -308,6 +328,21 @@ BEGIN
     PUSHBUTTON      "Show all models",IDC_BUTTON1,68,89,69,33
     LTEXT           "Active Model List",IDC_STATIC,7,102,54,8
     LTEXT           "Example: Teapot0,Teapot1",IDC_STATIC,7,141,88,8
+END
+
+IDD_FILERENDER_DLG DIALOGEX 0, 0, 309, 177
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,198,156,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,252,156,50,14
+    LTEXT           "Picture Height",IDC_STATIC,24,54,46,8
+    EDITTEXT        IDC_PIC_HEIGHT,24,66,264,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PIC_WIDTH,24,30,264,14,ES_AUTOHSCROLL
+    LTEXT           "Picture Width",IDC_STATIC,24,18,44,8
+    LTEXT           "Picture File Name",IDC_STATIC,24,91,56,8
+    EDITTEXT        IDC_FILE_NAME,24,102,258,14,ES_AUTOHSCROLL
 END
 
 
@@ -406,6 +441,14 @@ BEGIN
     END
 
     IDD_OTHERS_DLG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 302
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 170
+    END
+
+    IDD_FILERENDER_DLG, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 302

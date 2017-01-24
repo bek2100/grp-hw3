@@ -36,7 +36,6 @@ model::~model()
 }
 
 std::vector<line> model::Normal(bool given){
-	if (given)
-		return vertex_normals_list;
+	if (given) return vertex_normals_list;
 	return vertex_normals_list_polygons;
 }

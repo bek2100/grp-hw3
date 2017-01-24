@@ -49,9 +49,7 @@ void CLightDialog::DoDataExchange(CDataExchange* pDX)
 	DDV_MinMaxDouble(pDX, m_diffuse_mod, 0, 1);
 	DDX_Text(pDX, IDC_SPECULAR_MOD, m_specular_mod);
 	DDV_MinMaxDouble(pDX, m_specular_mod, 0, 1);
-
-	//NOTE:Add more dialog controls which are associated with the structure below this line		
-	//...
+	DDX_Text(pDX, IDC_SPECULAR_N, m_specular_n);
 
 	//the following class members can't be updated directly through DDX
 	//using a helper variable for type-casting to solve the compilation error
@@ -82,6 +80,7 @@ BEGIN_MESSAGE_MAP(CLightDialog, CDialog)
     ON_BN_CLICKED(IDC_RADIO_LIGHT8, &CLightDialog::OnBnClickedRadioLight)
 	ON_BN_CLICKED(IDC_LIGHT_ENABLED, &CLightDialog::OnBnClickedLightEnabled)
 	ON_CBN_SELCHANGE(IDC_LIGHT_TYPE, &CLightDialog::OnCbnSelchangeLightType)
+	ON_EN_CHANGE(IDC_LIGHT_COLOR_R, &CLightDialog::OnEnChangeLightColorR)
 END_MESSAGE_MAP()
 
 void CLightDialog::SetDialogData( LightID id,const LightParams& light )
@@ -92,11 +91,12 @@ void CLightDialog::SetDialogData( LightID id,const LightParams& light )
 	m_lights[id]=light;
 }
 
-void CLightDialog::SetLightConstants(double ambient_mod, double diffuse_mod, double spcular_mod)
+void CLightDialog::SetLightConstants(double ambient_mod, double diffuse_mod, double spcular_mod, double spcular_n)
 {
 	m_ambient_mod = ambient_mod;
 	m_diffuse_mod = diffuse_mod;
 	m_specular_mod = spcular_mod;
+	m_specular_n = spcular_n;
 }
 
 LightParams CLightDialog::GetDialogData( LightID id )
@@ -143,3 +143,14 @@ void CLightDialog::OnCbnSelchangeLightType()
 	
 }
 
+
+
+void CLightDialog::OnEnChangeLightColorR()
+{
+	// TODO:  If this is a RICHEDIT control, the control will not
+	// send this notification unless you override the CDialog::OnInitDialog()
+	// function and call CRichEditCtrl().SetEventMask()
+	// with the ENM_CHANGE flag ORed into the mask.
+
+	// TODO:  Add your control notification handler code here
+}

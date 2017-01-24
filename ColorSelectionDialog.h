@@ -15,6 +15,8 @@ public:
 		COLORREF m_background_color,
 		COLORREF m_vertex_norm_color,
 		COLORREF m_polygon_norm_color,
+		COLORREF m_silhouette_color,
+		double m_silhouette_thickness,
 		CWnd* pParent = NULL);
 	virtual ~ColorSelectionDialog();
 
@@ -31,10 +33,15 @@ public:
 	COLORREF background_color;
 	COLORREF vertex_norm_color;
 	COLORREF polygon_norm_color;
+	COLORREF silhouette_color;
 	afx_msg void OnBackgroundColorClick();
 	afx_msg void OnWireframeColorClick();
 	afx_msg void OnBoundboxColorClick();
 	afx_msg void OnBnClickedButton5();
 	afx_msg void OnBnClickedButton4();
+	afx_msg void OnBnClickedButton6();
+	double silhouette_thickness;
+	afx_msg void OnEnChangeLightPosX();
+	afx_msg void OnEnChangeSillhuotteThickness();
 };
 

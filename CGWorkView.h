@@ -22,6 +22,7 @@
 #include "polygon.h"
 #include <vector>
 #include "model.h"
+#include "PngWrapper.h"
 
 class CCGWorkView : public CView
 {
@@ -45,6 +46,12 @@ private:
 	bool given_polygon_normal;
 	bool given_vertex_normal;
 	bool m_bIsPerspective;			// is the view perspective
+	int render_type;				// rendering type
+	int m_render_target;			// render to a file or to the screent
+	bool m_override_normals;
+	bool m_back_face_culling;
+	bool m_silhouette;
+	double m_silhouette_thickness;
 	
 	CString m_strItdFileName;		// file name of IRIT data
 
@@ -54,18 +61,35 @@ private:
 	double m_lMaterialDiffuse;		// The Diffuse in the scene
 	double m_lMaterialSpecular;		// The Specular in the scene
 	int m_nMaterialCosineFactor;		// The cosine factor for the specular
+
 	
+	class x_z_c_n_point {
+		friend bool operator<(const x_z_c_n_point& l, const x_z_c_n_point& r){
+			return (l.x < r.x);
+		}
+
+	public:
+		double x;
+		double z;
+		COLORREF c;
+		vec4 n;
+	};
 
 	// our functions
-	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<int>>* x_y = NULL);
+	void DrawLine(double *z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF p1_color, vec4* p1_normal = NULL, COLORREF p2_color = NULL, vec4* p2_normal = NULL, std::unordered_map<int, std::vector<x_z_c_n_point>>* x_y = NULL);
 	void DrawBoundBox(double *z_arr, COLORREF *arr, model &m, mat4 cur_transform, COLORREF color);
 	void ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color);
+	void SetBackgound();
+	void set_light_pos(mat4 view_space_trans);
+	double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y);
+
 	COLORREF ApplyLight(COLORREF in_color, vec4 normal, vec4 pos);
 	COLORREF m_color_wireframe;
 	COLORREF m_background_color;
 	COLORREF m_boundbox_color;
 	COLORREF m_vertex_norm_color;
 	COLORREF m_polygon_norm_color;
+	COLORREF m_silhouette_color;
 
 	LightParams m_lights[MAX_LIGHT];	//configurable lights array
 	LightParams m_ambientLight;		//ambient light (only RGB is used)
@@ -94,19 +118,33 @@ protected:
 	BOOL InitializeCGWork();
 	BOOL SetupViewingFrustum(void);
 	BOOL SetupViewingOrthoConstAspect(void);
-	bool InRange(int x, int y, int width, int height);
 	virtual void RenderScene();
 	virtual LRESULT OnMouseMovement(WPARAM wparam, LPARAM lparam);
 
 	mat4 m_tarnsform;
 	mat4 m_screen_space_trans;
 	mat4 m_prespective_trans;
+	mat4 m_screen_space_scale;
+	mat4 m_screen_space_translate;
+	vec4 m_camera_pos;
+	vec4 m_camera_at;
+	vec4 m_camera_up;
 	double m_presepctive_d;
 	double m_presepctive_alpha;
 	double m_ambient_k;
 	double m_diffuse_k;
 	double m_speculr_k;
+	double m_speculr_n;
+	int m_inverse = 1;
 	std::vector<bool> active_modules;
+	std::string m_pic_name;
+
+	PngWrapper m_pngHandle; // Png handle class for writing
+	PngWrapper m_pngBackground; // Png handle class for background
+
+	bool m_active_background;
+	bool m_valid_background;
+	int m_background_type;
 
 	int m_mouse_xpos;
 	int m_mouse_ypos;
@@ -117,6 +155,8 @@ protected:
 	CDC*     m_pDC;			// holds the Device Context
 	int m_WindowWidth;		// hold the windows width
 	int m_WindowHeight;		// hold the windows height
+	int m_OriginalWindowWidth;		// hold the original window width
+	int m_OriginalWindowHeight;		// hold the original window height
 	double m_AspectRatio;		// hold the fixed Aspect Ration
 	double m_mouse_sensetivity;
 	COLORREF *m_screen;
@@ -174,6 +214,33 @@ public:
 	afx_msg void OnUpdateVertexGiven(CCmdUI *pCmdUI);
 	afx_msg void OnVertexCalculated();
 	afx_msg void OnUpdateVertexCalculated(CCmdUI *pCmdUI);
+	afx_msg void OnViewWireframe();
+	afx_msg void OnUpdateViewWireframe(CCmdUI *pCmdUI);
+	afx_msg void OnUpdateViewSolid(CCmdUI *pCmdUI);
+	afx_msg void OnViewSolid();
+	afx_msg void OnViewZ();
+	afx_msg void OnUpdateViewZ(CCmdUI *pCmdUI);
+	afx_msg void OnLightShadingPhong();
+	afx_msg void OnUpdateLightShadingPhong(CCmdUI *pCmdUI);
+	afx_msg void OnRenderTofile();
+	afx_msg void OnUpdateRenderTofile(CCmdUI *pCmdUI);
+	afx_msg void OnUpdateRenderToscreen(CCmdUI *pCmdUI);
+	afx_msg void OnRenderToscreen();
+	afx_msg void OnBackgroundSetimage();
+	afx_msg void OnBackgroundActive();
+	afx_msg void OnUpdateBackgroundActive(CCmdUI *pCmdUI);
+	afx_msg void OnBackgroundRepeat();
+	afx_msg void OnUpdateBackgroundRepeat(CCmdUI *pCmdUI);
+	afx_msg void OnBackgroundStretch();
+	afx_msg void OnUpdateBackgroundStretch(CCmdUI *pCmdUI);
+	afx_msg void OnOptionsBackfaceculling();
+	afx_msg void OnUpdateOptionsBackfaceculling(CCmdUI *pCmdUI);
+	afx_msg void OnOptionsNormalinverse();
+	afx_msg void OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI);
+	afx_msg void OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI);
+	afx_msg void OnOptionsOverridegivennormal();
+	afx_msg void OnOptionsAddsilhouette();
+	afx_msg void OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI);
 };
 
 #ifndef _DEBUG  // debug version in CGWorkView.cpp

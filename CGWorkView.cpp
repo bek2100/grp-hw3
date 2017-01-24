@@ -24,6 +24,7 @@ static char THIS_FILE[] = __FILE__;
 #include "PngWrapper.h"
 #include "iritSkel.h"
 #include "MouseSensetiveDialog.h"
+#include "FileRenderDlg.h"
 #include "mat4.h"
 #include "ColorSelectionDialog.h"
 #include "PrespectiveControlDialog.h"
@@ -44,6 +45,13 @@ extern IPFreeformConvStateStruct CGSkelFFCState;
 
 #define IN_RANGE(x, y) ((1 <= x) && (x < (m_WindowWidth - 1)) && (1 <= y) && (y < (m_WindowHeight - 1)))
 #define SCREEN_SPACE(x, y) (x + m_WindowWidth * y)
+#define BGR(x) RGB(GetBValue(x), GetGValue(x), GetRValue(x));
+#define SET_RGB(r,g,b) ((r)<<24|(g)<<16|(b)<<8|0)
+#define SET_RGBA(r,g,b,a) ((r)<<24|(g)<<16|(b)<<8|a)
+#define GET_R(x) (((x)&0xff000000)>>24)
+#define GET_G(x) (((x)&0x00ff0000)>>16)
+#define GET_B(x) (((x)&0x0000ff00)>>8)
+#define GET_A(x) ((x)&0x000000ff)
 
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView
@@ -100,6 +108,33 @@ BEGIN_MESSAGE_MAP(CCGWorkView, CView)
 	ON_UPDATE_COMMAND_UI(ID_VERTEX_GIVEN, &CCGWorkView::OnUpdateVertexGiven)
 	ON_COMMAND(ID_VERTEX_CALCULATED, &CCGWorkView::OnVertexCalculated)
 	ON_UPDATE_COMMAND_UI(ID_VERTEX_CALCULATED, &CCGWorkView::OnUpdateVertexCalculated)
+	ON_COMMAND(ID_VIEW_WIREFRAME, &CCGWorkView::OnViewWireframe)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_WIREFRAME, &CCGWorkView::OnUpdateViewWireframe)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_SOLID, &CCGWorkView::OnUpdateViewSolid)
+	ON_COMMAND(ID_VIEW_SOLID, &CCGWorkView::OnViewSolid)
+	ON_COMMAND(ID_VIEW_Z, &CCGWorkView::OnViewZ)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_Z, &CCGWorkView::OnUpdateViewZ)
+	ON_COMMAND(ID_LIGHT_SHADING_PHONg, &CCGWorkView::OnLightShadingPhong)
+	ON_UPDATE_COMMAND_UI(ID_LIGHT_SHADING_PHONg, &CCGWorkView::OnUpdateLightShadingPhong)
+	ON_COMMAND(ID_RENDER_TOFILE, &CCGWorkView::OnRenderTofile)
+	ON_UPDATE_COMMAND_UI(ID_RENDER_TOFILE, &CCGWorkView::OnUpdateRenderTofile)
+	ON_UPDATE_COMMAND_UI(ID_RENDER_TOSCREEN, &CCGWorkView::OnUpdateRenderToscreen)
+	ON_COMMAND(ID_RENDER_TOSCREEN, &CCGWorkView::OnRenderToscreen)
+	ON_COMMAND(ID_BACKGROUND_SETIMAGE, &CCGWorkView::OnBackgroundSetimage)
+	ON_COMMAND(ID_BACKGROUND_ACTIVE, &CCGWorkView::OnBackgroundActive)
+	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_ACTIVE, &CCGWorkView::OnUpdateBackgroundActive)
+	ON_COMMAND(ID_BACKGROUND_REPEAT, &CCGWorkView::OnBackgroundRepeat)
+	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_REPEAT, &CCGWorkView::OnUpdateBackgroundRepeat)
+	ON_COMMAND(ID_BACKGROUND_STRETCH, &CCGWorkView::OnBackgroundStretch)
+	ON_UPDATE_COMMAND_UI(ID_BACKGROUND_STRETCH, &CCGWorkView::OnUpdateBackgroundStretch)
+	ON_COMMAND(ID_OPTIONS_BACKFACECULLING, &CCGWorkView::OnOptionsBackfaceculling)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_BACKFACECULLING, &CCGWorkView::OnUpdateOptionsBackfaceculling)
+	ON_COMMAND(ID_OPTIONS_NORMALINVERSE, &CCGWorkView::OnOptionsNormalinverse)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_NORMALINVERSE, &CCGWorkView::OnUpdateOptionsNormalinverse)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_OVERRIDEGIVENNORMAL, &CCGWorkView::OnUpdateOptionsOverridegivennormal)
+	ON_COMMAND(ID_OPTIONS_OVERRIDEGIVENNORMAL, &CCGWorkView::OnOptionsOverridegivennormal)
+	ON_COMMAND(ID_OPTIONS_ADDSILHOUETTE, &CCGWorkView::OnOptionsAddsilhouette)
+	ON_UPDATE_COMMAND_UI(ID_OPTIONS_ADDSILHOUETTE, &CCGWorkView::OnUpdateOptionsAddsilhouette)
 END_MESSAGE_MAP()
 
 
@@ -114,6 +149,8 @@ void auxSolidCone(GLdouble radius, GLdouble height) {
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView construction/destruction
 
+mat4 m_cur_transform;
+
 CCGWorkView::CCGWorkView()
 {
 	// Set default values
@@ -127,7 +164,7 @@ CCGWorkView::CCGWorkView()
 	m_object_space_trans = false;
 	m_bound_box = false;
 	m_mouse_sensetivity = 1;
-	CGSkelFFCState.FineNess = 20;
+	CGSkelFFCState.FineNess = 2;
 
 	m_bIsPerspective = false;
 	m_tarnsform[0][0] = 1;
@@ -135,24 +172,35 @@ CCGWorkView::CCGWorkView()
 	m_tarnsform[2][2] = 1;
 	m_tarnsform[3][3] = 1;
 
-	m_presepctive_d = 1;
-	m_presepctive_alpha = 0.3;
+	m_presepctive_d = 2;
+	m_pic_name = "Default Name.png";
+	m_pngHandle.SetFileName(m_pic_name.c_str());
 
-	m_prespective_trans[0][0] = 1;
-	m_prespective_trans[1][1] = 1;
-	m_prespective_trans[2][2] = 1;
-	m_prespective_trans[2][3] = 1 / m_presepctive_d;
+	m_active_background = false;
+	m_valid_background = false;
+	m_silhouette = false;
+	m_back_face_culling = false;
+	m_silhouette_thickness = 0.01;
+	m_speculr_n = 2;
 
-
+	// initilize the cameras' position and direction in the view space
+	// used later
+	m_camera_pos = vec4(0, 0, -1, 1);
+	m_camera_at = vec4(0, 0, 0, 1);
+	m_camera_up = vec4(0, -1, 0, 1);
 
 	m_color_wireframe = RGB(0, 0, 0);
 	m_background_color = RGB(255, 255, 255);
 	m_boundbox_color = RGB(0, 0, 0);
 	m_polygon_norm_color = RGB(0, 0, 0);
+	m_silhouette_color = RGB(0, 0, 255);
 	m_vertex_norm_color = RGB(0, 0, 0);
 
 	m_nLightShading = ID_LIGHT_SHADING_FLAT;
+	render_type = ID_VIEW_SOLID;
+	m_render_target = ID_RENDER_TOSCREEN;
 
+	m_background_type = ID_BACKGROUND_REPEAT;
 	//init the coesffiecents of the lights
 	m_ambient_k = 0.3;
 	m_diffuse_k = 0.7;
@@ -170,9 +218,9 @@ CCGWorkView::CCGWorkView()
 	//init the first light to be enabled
 	m_lights[LIGHT_ID_1].enabled = true;
 	m_lights[LIGHT_ID_1].type = LIGHT_TYPE_POINT;
-	m_lights[LIGHT_ID_1].posX = -4000;
-	m_lights[LIGHT_ID_1].posY = -4000;
-	m_lights[LIGHT_ID_1].posZ = -04000;
+	m_lights[LIGHT_ID_1].posX = 0;
+	m_lights[LIGHT_ID_1].posY = 0;
+	m_lights[LIGHT_ID_1].posZ = -2;
 
 	m_ambientLight.colorR = 30;
 	m_ambientLight.colorG = 30;
@@ -183,7 +231,6 @@ CCGWorkView::CCGWorkView()
 CCGWorkView::~CCGWorkView()
 {
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView diagnostics
@@ -205,7 +252,6 @@ CCGWorkDoc* CCGWorkView::GetDocument() // non-debug version is inline
 	return (CCGWorkDoc*)m_pDocument;
 }
 #endif //_DEBUG
-
 
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView Window Creation - Linkage of windows to CGWork
@@ -234,7 +280,6 @@ int CCGWorkView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
-
 // This method initialized the CGWork system.
 BOOL CCGWorkView::InitializeCGWork()
 {
@@ -255,10 +300,8 @@ BOOL CCGWorkView::InitializeCGWork()
 	return TRUE;
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView message handlers
-
 
 void CCGWorkView::OnSize(UINT nType, int cx, int cy)
 {
@@ -272,17 +315,18 @@ void CCGWorkView::OnSize(UINT nType, int cx, int cy)
 	m_WindowWidth = cx;
 	m_WindowHeight = cy;
 
+	m_OriginalWindowWidth = m_WindowWidth;
+	m_OriginalWindowHeight = m_WindowHeight;
+
 	// compute the aspect ratio
 	// this will keep all dimension scales equal
 	m_AspectRatio = (GLdouble)m_WindowWidth / (GLdouble)m_WindowHeight;
 }
 
-
 BOOL CCGWorkView::SetupViewingFrustum(void)
 {
 	return TRUE;
 }
-
 
 // This viewing projection gives us a constant aspect ration. This is done by
 // increasing the corresponding size of the ortho cube.
@@ -300,8 +344,6 @@ BOOL CCGWorkView::OnEraseBkgnd(CDC* pDC)
 	return true;
 }
 
-
-
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView drawing
 /////////////////////////////////////////////////////////////////////////////
@@ -318,14 +360,16 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	mat4 screen_space_scale;
 	mat4 screen_space_translate;
 
-
+	// set the screen scaling transformation
 	int min_axis = min(m_WindowHeight, m_WindowWidth);
-
 	screen_space_scale[0][0] = (double)min_axis*0.6;
 	screen_space_scale[1][1] = (double)min_axis*0.6;
 	screen_space_scale[2][2] = (double)min_axis*0.6;
 	screen_space_scale[3][3] = 1;
 
+	m_screen_space_scale = screen_space_scale;
+
+	// set the screen translation transformation
 	screen_space_translate[0][0] = 1;
 	screen_space_translate[3][0] = 0.5 * m_WindowWidth;
 
@@ -333,7 +377,24 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	screen_space_translate[3][1] = 0.5 * m_WindowHeight;
 
 	screen_space_translate[2][2] = 1;
+
 	screen_space_translate[3][3] = 1;
+
+	m_screen_space_translate = screen_space_translate;
+
+
+	// set the screens prespective transformation
+	mat4 reset;
+	m_prespective_trans = reset;
+
+	double screen_space_d = m_presepctive_d * (double)min_axis*0.6;
+	double screen_space_alpha = 0.6 * screen_space_d;
+
+	m_prespective_trans[0][0] = 1;
+	m_prespective_trans[1][1] = 1;
+	m_prespective_trans[2][2] = screen_space_d / (screen_space_d - screen_space_alpha);
+	m_prespective_trans[2][3] = 1 / screen_space_d;
+	m_prespective_trans[3][2] = -screen_space_alpha * screen_space_d / (screen_space_d - screen_space_alpha);
 
 	m_screen_space_trans = screen_space_scale * screen_space_translate;
 
@@ -342,7 +403,6 @@ void CCGWorkView::OnDraw(CDC* pDC)
 	if (!pDoc)
 		return;
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 // CCGWorkView CGWork Finishing and clearing...
@@ -366,13 +426,8 @@ void CCGWorkView::OnDestroy()
 	}
 }
 
-
-
 /////////////////////////////////////////////////////////////////////////////
 // User Defined Functions
-bool CCGWorkView::InRange(int x, int y, int width, int height){
-	return (0 <= x && x < height && 0 <= y && y < width);
-};
 
 bool past_pressed;
 LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
@@ -411,23 +466,23 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 			if (m_nAxis == ID_AXIS_X){
 				temp_transform[0][0] = 1;
 
-				temp_transform[1][1] = cosx;
-				temp_transform[1][2] = -sinx;
+				temp_transform[1][1] = cosy;
+				temp_transform[1][2] = -siny;
 
-				temp_transform[2][1] = sinx;
-				temp_transform[2][2] = cosx;
+				temp_transform[2][1] = siny;
+				temp_transform[2][2] = cosy;
 
 				temp_transform[3][3] = 1;
 
 			}
 			if (m_nAxis == ID_AXIS_Y){
-				temp_transform[0][0] = cosy;
-				temp_transform[0][2] = -siny;
+				temp_transform[0][0] = cosx;
+				temp_transform[0][2] = -sinx;
 
 				temp_transform[1][1] = 1;
 
-				temp_transform[2][0] = siny;
-				temp_transform[2][2] = cosy;
+				temp_transform[2][0] = sinx;
+				temp_transform[2][2] = cosx;
 
 				temp_transform[3][3] = 1;
 			}
@@ -445,21 +500,21 @@ LRESULT CCGWorkView::OnMouseMovement(WPARAM wparam, LPARAM lparam){
 			if (m_nAxis == ID_AXIS_XY){
 				temp_transform[0][0] = 1;
 
-				temp_transform[1][1] = cosx;
-				temp_transform[1][2] = sinx;
+				temp_transform[1][1] = cosy;
+				temp_transform[1][2] = siny;
 
-				temp_transform[2][1] = -sinx;
-				temp_transform[2][2] = cosx;
+				temp_transform[2][1] = -siny;
+				temp_transform[2][2] = cosy;
 
 				temp_transform[3][3] = 1;
 
-				temp_transform_xy[0][0] = cosy;
-				temp_transform_xy[0][2] = siny;
+				temp_transform_xy[0][0] = cosx;
+				temp_transform_xy[0][2] = sinx;
 
 				temp_transform_xy[1][1] = 1;
 
-				temp_transform_xy[2][0] = -siny;
-				temp_transform_xy[2][2] = cosy;
+				temp_transform_xy[2][0] = -sinx;
+				temp_transform_xy[2][2] = cosx;
 
 				temp_transform_xy[3][3] = 1;
 
@@ -633,56 +688,132 @@ static double Depth(std::vector<vec4> q, int x, int y){
 	return p2.z; //cheating 
 }
 
-static double LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
-
-	//int p2_x = static_cast<int>(p2.x / p2.p);
-	//int p2_y = static_cast<int>(p2.y / p2.p);
-	//int p2_z = static_cast<int>(p2.z / p2.p);
-
-	//int p1_x = static_cast<int>(p1.x / p1.p);
-	//int p1_y = static_cast<int>(p1.y / p1.p);
-	//int p1_z = static_cast<int>(p1.z / p1.p);
-
-	double p2_x = (p2.x / p2.p);
-	double p2_y = (p2.y / p2.p);
+double CCGWorkView::LinePointDepth(vec4 &p1, vec4 &p2, int x, int y){
+	
+	double p2_x = static_cast<int>(p2.x / p2.p);
+	double p2_y = static_cast<int>(p2.y / p2.p);
 	double p2_z = (p2.z / p2.p);
 
-	double p1_x = (p1.x / p1.p);
-	double p1_y = (p1.y / p1.p);
+	double p1_x = static_cast<int>(p1.x / p1.p);
+	double p1_y = static_cast<int>(p1.y / p1.p);
 	double p1_z = (p1.z / p1.p);
-
 
 	double z_delta = p1_z - p2_z;
 	double y_delta = p1_y - p2_y;
-	double x_delta = p1_x - p1_x;
+	double x_delta = p1_x - p2_x;
 	double z;
 
-	if (y_delta != 0) // line does not change in y
+	if (y_delta != 0 && (abs(y_delta) >= abs(x_delta))) // line does not change in y
 		z = (z_delta / y_delta) * (y - p2_y) + p2_z;
 	else if (x_delta != 0) // line does not change in x
 		z = (z_delta / x_delta) * (x - p2_x) + p2_z;
 	else // line does not change in y and x, meaning we only draw p1 on screen
-		z = max(p1_z, p2_z);
-
-	//double m = (p1.x / p1.p - p2.x / p2.p) / (p1.y / p1.p - p2.y / p2.p);
-	//double x1 = m*y - m*(p1.y / p1.p) + (p1.x / p1.p);
-	//double d1 = sqrt(pow(p1.y / p1.p - y, 2) + pow(p1.x / p1.p - x1, 2));
-	//double d = sqrt(pow(p1.y / p1.p - p2.y / p2.p, 2) + pow(p1.x / p1.p - p2.x / p2.p, 2));
-	//double z = (p2.z / p2.p)*(d1 / d) + (1 - d1 / d)*(p1.z / p1.p);
+		z = min(p1_z, p2_z);
 
 	return z;
 	
-	
 }
 
-void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF color, vec4 normal, std::unordered_map<int, std::vector<int>>* x_y){
+static vec4 LinePointNormal(vec4 &p1, vec4 &p2, vec4 p1_normal, vec4 p2_normal, int x, int y){
+
+	double p2_x = static_cast<int>(p2.x / p2.p);
+	double p2_y = static_cast<int>(p2.y / p2.p);
+	double p2_z = (p2.z / p2.p);
+
+	double p1_x = static_cast<int>(p1.x / p1.p);
+	double p1_y = static_cast<int>(p1.y / p1.p);
+	double p1_z = (p1.z / p1.p);
+
+	vec4 n_delta = p1_normal - p2_normal;
+	double y_delta = p1_y - p2_y;
+	double x_delta = p1_x - p2_x;
+	vec4 n;
+
+	if (y_delta != 0 && (abs(y_delta) >= abs(x_delta))) // line does not change in y
+		n = (n_delta / y_delta) * (y - p2_y) + p2_normal;
+	else if (x_delta != 0) // line does not change in x
+		n = (n_delta / x_delta) * (x - p2_x) + p2_normal;
+	else // line does not change in y and x, meaning we only draw p1 on screen
+		n = (p1_z < p2_z) ? p1_normal : p2_normal;
+
+	return n;
+
+}
+
+static COLORREF LinePointLight(vec4 &p1, vec4 &p2, COLORREF p1_color, COLORREF p2_color, double x, double y){
+
+	double p2_x = static_cast<int>(p2.x / p2.p);
+	double p2_y = static_cast<int>(p2.y / p2.p);
+  
+	double p1_x = static_cast<int>(p1.x / p1.p);
+	double p1_y = static_cast<int>(p1.y / p1.p);
+
+	double p1_z = static_cast<int>(p1.z / p1.p);
+	double p2_z = static_cast<int>(p2.z / p2.p);
+
+
+	int c_red_delta = GetRValue(p1_color) - GetRValue(p2_color);
+	int c_grn_delta = GetGValue(p1_color) - GetGValue(p2_color);
+	int c_blu_delta = GetBValue(p1_color) - GetBValue(p2_color);
+	double y_delta = p1_y - p2_y;
+	double x_delta = p1_x - p2_x;
+	double z_delta = p1_z - p2_z;
+
+	double cred;
+	double cgrn;
+	double cblu;
+	COLORREF c;
+
+	int p1r = GetRValue(p1_color);
+	int p1g = GetGValue(p1_color);
+	int p1b = GetBValue(p1_color);
+
+	int p2r = GetRValue(p2_color);
+	int p2g = GetGValue(p2_color);
+	int p2b = GetBValue(p2_color);
+
+	bool use_y = y_delta < x_delta;
+
+
+	if (y_delta != 0 && (abs(y_delta) >= abs(x_delta))){ // line does not change in x
+		cred = ((double)c_red_delta / y_delta) * (y - p2_y) + GetRValue(p2_color);
+		cgrn = ((double)c_grn_delta / y_delta) * (y - p2_y) + GetGValue(p2_color);
+		cblu = ((double)c_blu_delta / y_delta) * (y - p2_y) + GetBValue(p2_color);
+	}
+	else if (x_delta != 0){ // line does not change in y
+		cred = ((double)c_red_delta / x_delta) * (x - p2_x) + GetRValue(p2_color);
+		cgrn = ((double)c_grn_delta / x_delta) * (x - p2_x) + GetGValue(p2_color);
+		cblu = ((double)c_blu_delta / x_delta) * (x - p2_x) + GetBValue(p2_color);
+	}
+	else { // line does not change in y and x, meaning we only draw p1 on screen
+		cred = (p1_z < p2_z) ? GetRValue(p1_color) : GetRValue(p2_color);
+		cgrn = (p1_z < p2_z) ? GetGValue(p1_color) : GetGValue(p2_color);
+		cblu = (p1_z < p2_z) ? GetBValue(p1_color) : GetBValue(p2_color);
+	}
+
+	c = RGB(static_cast<int>(max(min(cred, 255), 0)),
+		    static_cast<int>(max(min(cgrn, 255), 0)),
+			static_cast<int>(max(min(cblu, 255), 0)));
+
+	int c2r = static_cast<int>(max(min(cred, 255), 0));
+	int c2g = static_cast<int>(max(min(cgrn, 255), 0));
+	int c2b = static_cast<int>(max(min(cblu, 255), 0));
+
+	if (cred < 0 || cgrn < 0 || cblu < 0)
+		bool shit = true;
+
+	return c;
+
+}
+
+void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COLORREF p1_color, vec4* p1_normal, COLORREF p2_color, vec4* p2_normal, std::unordered_map<int, std::vector<x_z_c_n_point>>* x_y){
 
 	// if the line is beyond the screen space, dont bother drawing it
 	if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
 		&& (m_nView == ID_VIEW_PERSPECTIVE) ||
 		(m_nView == ID_VIEW_ORTHOGRAPHIC)))
 		return;
-	int xy = (x_y != NULL) ? 1 : 0;
+	int xy = (x_y != NULL);
 	// algorithm vars
 	int x1, x2, y1, y2, dx, dy, d;
 	int north_er, north_west_er, west_er, south_west_er, south_er, south_east_er, east_er, north_east_er;
@@ -695,6 +826,8 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 	double p2_x = p2.x / p2.p;
 	double p1_y = p1.y / p1.p;
 	double p2_y = p2.y / p2.p;
+	double p1_z = p1.z / p1.p;
+	double p2_z = p2.z / p2.p;
 
 	x1 = static_cast<int>(min(p1_x, p2_x));
 	x2 = static_cast<int>(max(p1_x, p2_x));
@@ -725,14 +858,40 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 	south_east_er = 2 * dx + 2 * dy;
 
 	double z;
+	x_z_c_n_point xzcn_point;
 
-	if (xy) 
-		(*x_y)[y].push_back(x);
-	if (IN_RANGE(x, y)){
-		z = LinePointDepth(p1, p2, x, y);
+	std::vector<COLORREF> color_debug;
+	bool inc = false;
+	bool dec = false;
+	bool stat = false;
+
+	COLORREF c;
+	vec4 n = *p1_normal;
+
+	z = LinePointDepth(p1, p2, x, y);
+	if (m_nLightShading == ID_LIGHT_SHADING_PHONg)
+		n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+
+	if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD)
+		c = LinePointLight(p1, p2, p1_color, p2_color ,x, y);
+	else 
+		c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
+	if (xy) {
+		xzcn_point.x = x;
+		xzcn_point.z = z;
+		xzcn_point.c = c;
+		xzcn_point.n = n;
+		
+		(*x_y)[y].push_back(xzcn_point);
+	}
+	else if (IN_RANGE(x, y)){
 		if (z < z_arr[SCREEN_SPACE(x, y)]){
-			arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+			arr[SCREEN_SPACE(x, y)] = c;
 			z_arr[SCREEN_SPACE(x, y)] = z;
+			if (m_render_target == ID_RENDER_TOFILE){
+				m_pngHandle.SetValue(x, y, c);
+			}
 		}		
 	}
 	// select the correct midpoint algorithm (direction and incline)
@@ -741,12 +900,30 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 
 		while (y < y2){
 			y = y + 1;
-			if (xy) (*x_y)[y].push_back(x);
-			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
-				if (z < z_arr[SCREEN_SPACE(x, y)]){					
-					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+
+			z = LinePointDepth(p1, p2, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+				n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) 
+				c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else 
+				c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
+			if (xy) {
+				xzcn_point.x = x;
+				xzcn_point.z = z;
+				xzcn_point.c = c;
+				xzcn_point.n = n;
+				(*x_y)[y].push_back(xzcn_point);
+
+			}
+			else if (IN_RANGE(x, y)){
+				if (z < z_arr[SCREEN_SPACE(x, y)]){
+					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -767,13 +944,30 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y + 1;
 			}
-			if (xy) (*x_y)[y].push_back(x);
-			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
+
+			z = LinePointDepth(p1, p2, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+				n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) 
+				c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else 
+				c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
+			if (xy) {
+				xzcn_point.x = x;
+				xzcn_point.z = z;
+				xzcn_point.c = c;
+				xzcn_point.n = n;
+				(*x_y)[y].push_back(xzcn_point);
+			}
+			else if (IN_RANGE(x, y)){
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
-				};
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, c);
+					}
+				}
 			}
 		}
 	}
@@ -790,12 +984,30 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y + 1;
 			}
-			if (xy) (*x_y)[y].push_back(x);
-			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
+
+			z = LinePointDepth(p1, p2, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+				n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) 
+				c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else 
+				c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+
+			if (xy) {
+				xzcn_point.x = x;
+				xzcn_point.z = z;
+				xzcn_point.c = c;
+				xzcn_point.n = n;
+				(*x_y)[y].push_back(xzcn_point);
+				color_debug.push_back(c);
+			}
+			else if (IN_RANGE(x, y)){
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -812,13 +1024,24 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y - 1;
 			}
-			if (xy && incline != 0) // when drawn, you skip a point between 2 xs with the same y;
-				(*x_y)[y].push_back(x);
-			else if (IN_RANGE(x, y) && !xy){
-				z = LinePointDepth(p1, p2, x, y);
+			z = LinePointDepth(p1, p2, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+			if (xy) {
+				xzcn_point.x = x;
+				xzcn_point.z = z;
+				xzcn_point.c = c;
+				xzcn_point.n = n;
+				(*x_y)[y].push_back(xzcn_point);
+			}
+			else if (IN_RANGE(x, y)){
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
 		}
@@ -835,67 +1058,132 @@ void CCGWorkView::DrawLine(double* z_arr, COLORREF *arr, vec4 &p1, vec4 &p2, COL
 				x = x + 1;
 				y = y - 1;
 			}
-			if (xy) (*x_y)[y].push_back(x);
-			if (IN_RANGE(x, y)){
-				z = LinePointDepth(p1, p2, x, y);
+			z = LinePointDepth(p1, p2, x, y);
+			z = LinePointDepth(p1, p2, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_PHONg) n = LinePointNormal(p1, p2, *p1_normal, *p2_normal, x, y);
+			if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD) c = LinePointLight(p1, p2, p1_color, p2_color, x, y);
+			else c = ApplyLight(p1_color, n, vec4(x, y, z, 1));
+			if (xy) {
+				xzcn_point.x = x;
+				xzcn_point.z = z;
+				xzcn_point.c = c;
+				xzcn_point.n = n;
+				(*x_y)[y].push_back(xzcn_point);
+			}
+			else if (IN_RANGE(x, y)){
 				if (z < z_arr[SCREEN_SPACE(x, y)]){
-					arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+					arr[SCREEN_SPACE(x, y)] = c;
 					z_arr[SCREEN_SPACE(x, y)] = z;
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, c);
+					}
 				}
 			}
-
 		}
 	}
+
 	return;
 }
 
 void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 cur_transform, COLORREF color){
 	vec4 p1, p2;
+	std::unordered_map<int, std::vector<x_z_c_n_point>> x_y;
+	COLORREF c1, c2;
 
+	////////////////////////////////////////////
 	// create the normal of this polygon
-	line normal_line = p.Normal(given_polygon_normal);
-	vec4 normal = normal_line.p_a * cur_transform - normal_line.p_b * cur_transform;
-	normal = normal; // TODO use given or calculated normal AND consider prespective
-	normal = normal / normal_line.p_a.p;
-	double max_z = -std::numeric_limits<double>::infinity();
-	// "draw" the lines on screen and save where the x's of each y row are
-	std::vector<vec4> q;
-	std::unordered_map<int, std::vector<int>> x_y;
-	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
-		p1 = p.points[pnt] * cur_transform;
-		if (pnt + 1 == p.points.size()) p2 = p.points[0] * cur_transform;
-		else p2 = p.points[pnt + 1] * cur_transform;
-		q.push_back(p1);
-		max_z = ((p1.z / p1.p) > max_z) ? p1.z / p1.p : max_z;
-		max_z = ((p2.z / p2.p) > max_z) ? p1.z / p1.p : max_z;
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	line p1_normal_line;
+	line p2_normal_line;
+	vec4 p1_normal = vec4(0, 0, 0, 1);
+	vec4 p2_normal = vec4(0, 0, 0, 1);;
+	if (m_nLightShading == ID_LIGHT_SHADING_FLAT){
+		p2_normal_line = p1_normal_line = p.Normal(!m_override_normals);
+		if (p1_normal_line.p_a == p1_normal_line.p_b)
+			p2_normal_line = p1_normal_line = p.Normal(m_override_normals);
 
-		DrawLine(z_arr, arr, p1, p2, color, normal, &x_y);
+		vec4 normal_pa = p1_normal_line.p_a * cur_transform;
+		vec4 normal_pb = p1_normal_line.p_b * cur_transform;
+		p1_normal = (normal_pb / normal_pb.p) - (normal_pa / normal_pa.p);
 	}
 
-	// caldualte the noraml's eqaution
-	vec4 point_in_plane;
-	point_in_plane = p.points[0] * cur_transform;
-	point_in_plane = point_in_plane / point_in_plane.p;
-	double A = normal.x;
-	double B = normal.y;
-	double C = normal.z;
-	double D = -(A * point_in_plane.x + B * point_in_plane.y + C * point_in_plane.z);
+	////////////////////////////////////////////
+	// "draw" the lines on screen and save where the x's of each y row are
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	c1 = c2 = color;
+	vec4 p1_normal_pa, p1_normal_pb, p2_normal_pa, p2_normal_pb;
+	for (unsigned int pnt = 0; pnt < p.points.size(); pnt++){
+		p1 = p.points[pnt];
+		p2 = p.points[(pnt + 1) % p.points.size()];
+		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD || m_nLightShading == ID_LIGHT_SHADING_PHONg){
+			
+			p1_normal_line = p.VertexNormal(!m_override_normals)[p1];
+			if (p1_normal_line.p_a == p1_normal_line.p_b)
+				p1_normal_line = p.VertexNormal(m_override_normals)[p1];;
+			
+			p2_normal_line = p.VertexNormal(!m_override_normals)[p2];
+			if (p2_normal_line.p_a == p2_normal_line.p_b)
+				p2_normal_line = p.VertexNormal(m_override_normals)[p2];
 
+			p1_normal_pa = p1_normal_line.p_a * cur_transform;
+			p1_normal_pb = (p1_normal_line.p_b * cur_transform);
+			p2_normal_pa = p2_normal_line.p_a * cur_transform;
+			p2_normal_pb = (p2_normal_line.p_b * cur_transform);
+			p1_normal = (p1_normal_pb / p1_normal_pb.p) - (p1_normal_pa / p1_normal_pa.p);
+			p1_normal = p1_normal * m_inverse;
+
+			p2_normal = (p2_normal_pb / p2_normal_pb.p) - (p2_normal_pa / p2_normal_pa.p);
+			p2_normal = p2_normal * m_inverse;
+		}
+		p1 = p1 * cur_transform;
+		p2 = p2 *cur_transform;
+		if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD){
+			c1 = ApplyLight(color, p1_normal, p1 / p1.p);
+			c2 = ApplyLight(color, p2_normal, p2 / p2.p);
+		}
+
+		// skip polygons behind the camera
+		if (!(((p1.z > m_presepctive_d && p2.z > m_presepctive_d) && !(p1.x <= 0 && p2.x <= 0) && !(p1.y <= 0 && p2.y <= 0))
+			&& (m_nView == ID_VIEW_PERSPECTIVE) ||
+			(m_nView == ID_VIEW_ORTHOGRAPHIC)))
+			return;
+		DrawLine(z_arr, arr, p1, p2, c1, &p1_normal, c2, &p2_normal, &x_y);
+	}
+	
+	////////////////////////////////////////////
 	// z_buffer drawing
+	//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	vec4 scan_p1, scan_p2 ,n1 ,n2;
+	COLORREF c;
 	double z;
 	for (auto iter = x_y.begin(); iter != x_y.end(); ++iter){
 		std::sort(iter->second.begin(), iter->second.end());
 		int y = iter->first;
-		for (unsigned int i = 0; i <= iter->second.size() - 2; i++){
-			// draw only the internal polygon
-			for (int x = iter->second[i]; x <= iter->second[i + 1]; x++){
+		if (iter->second.size() > 1){
+			scan_p1 = vec4(iter->second[0].x, y, iter->second[0].z, 1);
+			scan_p2 = vec4(iter->second[iter->second.size() - 1].x, y, iter->second[iter->second.size() - 1].z, 1);
+			c1 = iter->second[0].c;
+			c2 = iter->second[iter->second.size() - 1].c;
+			n1 = iter->second[0].n;
+			n2 = iter->second[iter->second.size() - 1].n;
+			for (int x = static_cast<int>(iter->second[0].x); x <= iter->second[iter->second.size() - 1].x; x++){
 				if (IN_RANGE(x, y)){
-					z = (C != 0) ? -(A * (double)x + B * (double)y + D) / C : max_z;
-					double z_arr_val = z_arr[SCREEN_SPACE(x, y)];
+					z = LinePointDepth(scan_p1, scan_p2, x, y);
 					if (z < z_arr[SCREEN_SPACE(x, y)]){
-						COLORREF c = ApplyLight(color, normal, vec4(x, y, z, 1));
-						arr[SCREEN_SPACE(x, y)] = ApplyLight(color, normal, vec4(x, y, z, 1));
+						vec4 n = p1_normal;
+						if (m_nLightShading == ID_LIGHT_SHADING_PHONg) 
+							n = LinePointNormal(scan_p1, scan_p2, n1, n2, x, y);
+						if (m_nLightShading == ID_LIGHT_SHADING_GOURAUD)
+							c = LinePointLight(scan_p1, scan_p2, c1, c2, x, y);
+						else
+							c = ApplyLight(color, n, vec4(x, y, z, 1));
+
+						arr[SCREEN_SPACE(x, y)] = c;
 						z_arr[SCREEN_SPACE(x, y)] = z;
+
+						if (m_render_target == ID_RENDER_TOFILE){
+							m_pngHandle.SetValue(x, y, arr[SCREEN_SPACE(x, y)]);
+						}
 					}
 				}
 			}
@@ -904,8 +1192,6 @@ void CCGWorkView::ScanConversion(double *z_arr, COLORREF *arr, polygon &p, mat4 
 }
 
 void CCGWorkView::DrawBoundBox(double *z_arr, COLORREF *arr, model &model, mat4 cur_transform, COLORREF color){
-
-	//mat4 cur_transform = model.obj_coord_trans * model.view_space_trans * m_screen_space_trans;
 
 	double minx = model.min_vec.x;
 	double miny = model.min_vec.y;
@@ -930,25 +1216,27 @@ void CCGWorkView::DrawBoundBox(double *z_arr, COLORREF *arr, model &model, mat4 
 	vec4 psudo_normal = vec4(0, 0, 0, 1);
 
 	// zmin rectangle first
-	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymax_zmin * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmax_ymax_zmin * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymin_zmin * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmin_ymin_zmin * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymax_zmin * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmax_ymax_zmin * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymin_zmin * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmin_ymin_zmin * cur_transform, color, &psudo_normal, color, &psudo_normal);
 
 	// zmax rectangle second
-	DrawLine(z_arr, arr, xmin_ymin_zmax * cur_transform, xmin_ymax_zmax * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmin_ymax_zmax * cur_transform, xmax_ymax_zmax * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmax_ymax_zmax * cur_transform, xmax_ymin_zmax * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmax_ymin_zmax * cur_transform, xmin_ymin_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymin_zmax * cur_transform, xmin_ymax_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymax_zmax * cur_transform, xmax_ymax_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymax_zmax * cur_transform, xmax_ymin_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymin_zmax * cur_transform, xmin_ymin_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
 
 	// connect the two rectangles next
-	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymin_zmax * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmin_ymax_zmax * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmax_ymin_zmax * cur_transform, color, psudo_normal);
-	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymax_zmax * cur_transform, color, psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymin_zmin * cur_transform, xmin_ymin_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmin_ymax_zmin * cur_transform, xmin_ymax_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymin_zmin * cur_transform, xmax_ymin_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
+	DrawLine(z_arr, arr, xmax_ymax_zmin * cur_transform, xmax_ymax_zmax * cur_transform, color, &psudo_normal, color, &psudo_normal);
 }
 
 COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
+
+	if (m_nLightShading == NULL) return in_color;
 	// initilize as "no light"
 	int inentisity = 0;
 
@@ -957,12 +1245,20 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 	double grn_inentsity = m_ambient_k * ((double)m_ambientLight.colorG / 255) * GetGValue(in_color);
 	double blu_inentsity = m_ambient_k * ((double)m_ambientLight.colorB / 255) * GetBValue(in_color);
 
+	vec4 light_pos;
 
 	double cos_teta = 1;
+	double sin_teta = 1;
+	double cos_alpha = 1;
 	double len_light_dist = 1;
 	double len_normal = sqrt(pow(normal.x, 2.0) +
 		pow(normal.y, 2.0) +
 		pow(normal.z, 2.0));
+	double len_to_camera;
+
+	// draw z buffer depth using the blue channel
+	if (render_type == ID_VIEW_Z)
+		return RGB(static_cast<int>(255 * (pos.z / 4000)), 0, 0);
 
 	// when you don't want light effect, tner a o length normal
 	if (len_normal == 0)
@@ -971,47 +1267,74 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 	// apply diffuse reflection
 	for (int l = LIGHT_ID_1; l < MAX_LIGHT; l++){
 		if (m_lights[l].enabled){
+
 			if (m_lights[l].type == LIGHT_TYPE_POINT){
 
-				len_light_dist = sqrt(pow(pos.x - m_lights[l].posX, 2.0) +
-					pow(pos.y - m_lights[l].posY, 2.0) +
-					pow(pos.z - m_lights[l].posZ, 2.0));
+				len_to_camera = sqrt(pow(pos.x, 2.0) +
+					pow(pos.y, 2.0) +
+					pow(pos.z, 2.0));
 
-				cos_teta = ((pos.x - m_lights[l].posX) * (normal.x) +
-					(pos.y - m_lights[l].posY) * (normal.y) +
-					(pos.z - m_lights[l].posZ) * (normal.z)) /
+				len_light_dist = sqrt(pow(pos.x - m_lights[l].rel_pos.x, 2.0) +
+					pow(pos.y - m_lights[l].rel_pos.y, 2.0) +
+					pow(pos.z - m_lights[l].rel_pos.z, 2.0));
+
+				// angle between point normal and light source direction
+				cos_teta = ((pos.x - m_lights[l].rel_pos.x) * (normal.x) +
+					(pos.y - m_lights[l].rel_pos.y) * (normal.y) +
+					(pos.z - m_lights[l].rel_pos.z) * (normal.z)) /
 					(len_normal * len_light_dist);
 
 				//diffuse light from source
 				// when the normal is facing the light source, add the calculation
 				// when the normal is not facing the light source, ignore it
-				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
 
 				//specular light from source
-				//...
+				double cos_big_teta = ((pos.x - m_lights[l].rel_pos.x) * (pos.x) +
+					(pos.y - m_lights[l].rel_pos.y) * (pos.y) +
+					(pos.z - m_lights[l].rel_pos.z) * (pos.z)) /
+					(len_to_camera * len_light_dist);
+				double cos_alpha = cos(acos(cos_big_teta) - 2 * acos(cos_teta));
+
+				red_inentsity += m_speculr_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_alpha > 0) ? pow(cos_alpha, m_speculr_n) : 0);
+				grn_inentsity += m_speculr_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_alpha > 0) ? pow(cos_alpha, m_speculr_n) : 0);
+				blu_inentsity += m_speculr_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_alpha > 0) ? pow(cos_alpha, m_speculr_n) : 0);
 			}
 			else if (m_lights[l].type == LIGHT_TYPE_DIRECTIONAL){
+				len_to_camera = sqrt(pow(pos.x, 2.0) +
+					pow(pos.y, 2.0) +
+					pow(pos.z, 2.0));
+
 				// the "light distance" here is the size of the direction
-				len_light_dist = sqrt(pow(m_lights[l].dirX, 2.0) +
-					pow(m_lights[l].dirY, 2.0) +
-					pow(m_lights[l].dirZ, 2.0));
+				len_light_dist = sqrt(pow(m_lights[l].rel_dir.x, 2.0) +
+					pow(m_lights[l].rel_dir.y, 2.0) +
+					pow(m_lights[l].rel_dir.z, 2.0));
 				
-				cos_teta = ((m_lights[l].dirX) * (normal.x) +
-					(m_lights[l].dirY) * (normal.y) +
-					(m_lights[l].dirZ) * (normal.z)) /
+				cos_teta = ((m_lights[l].rel_dir.x) * (normal.x) +
+					(m_lights[l].rel_dir.y) * (normal.y) +
+					(m_lights[l].rel_dir.z) * (normal.z)) /
 					(len_normal * len_light_dist);
 
 				//diffuse light from source
 				// when the normal is facing the light source, add the calculation
 				// when the normal is not facing the light source, ignore it
-				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
-				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta < 0) ? -cos_teta : 0);
+				red_inentsity += m_diffuse_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				grn_inentsity += m_diffuse_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
+				blu_inentsity += m_diffuse_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_teta > 0) ? cos_teta : 0);
 
 				//specular light from source
-				//...
+				//specular light from source
+				double cos_big_teta = ((m_lights[l].rel_dir.x) * (pos.x) +
+					(m_lights[l].rel_dir.y) * (pos.y) +
+					(m_lights[l].rel_dir.z) * (pos.z)) /
+					(len_to_camera * len_light_dist);
+				double cos_alpha = cos(acos(cos_big_teta) - 2 * acos(cos_teta));
+
+				red_inentsity += m_speculr_k * ((double)m_lights[l].colorR / 255) * GetRValue(in_color) * ((cos_alpha > 0) ? pow(cos_alpha, m_speculr_n) : 0);
+				grn_inentsity += m_speculr_k * ((double)m_lights[l].colorG / 255) * GetGValue(in_color) * ((cos_alpha > 0) ? pow(cos_alpha, m_speculr_n) : 0);
+				blu_inentsity += m_speculr_k * ((double)m_lights[l].colorB / 255) * GetBValue(in_color) * ((cos_alpha > 0) ? pow(cos_alpha, m_speculr_n) : 0);
 			}
 			else if (m_lights[l].type == LIGHT_TYPE_SPOT){
 				// not needed for hw2
@@ -1050,30 +1373,166 @@ COLORREF CCGWorkView::ApplyLight(COLORREF in_color, vec4 normal, vec4 pos){
 		}
 	}
 
-	COLORREF out_color = RGB(static_cast<int>(min(red_inentsity, 255)),
-						 	 static_cast<int>(min(grn_inentsity, 255)),
-							 static_cast<int>(min(blu_inentsity, 255)));
+	COLORREF out_color = RGB(static_cast<int>(max(min(red_inentsity, 255), 0)),
+						 	 static_cast<int>(max(min(grn_inentsity, 255), 0)),
+							 static_cast<int>(max(min(blu_inentsity, 255), 0)));
 	return out_color;
 }
 
+void CCGWorkView::SetBackgound(){
+	if (m_active_background && m_valid_background){
+		int bpp = m_pngBackground.GetNumChannels();
+		int cur_color;
+		int pic_width = m_pngBackground.GetWidth();
+		int pic_height = m_pngBackground.GetHeight();
+		if (bpp == 3 || bpp == 4){
+			for (int x = 0; x < m_WindowWidth; x++)
+				for (int y = 0; y < m_WindowHeight; y++){
+					if (m_background_type == ID_BACKGROUND_REPEAT)
+						cur_color = m_pngBackground.GetValue(
+						x % pic_width,
+						y % pic_height
+						);
+					else if (m_background_type == ID_BACKGROUND_STRETCH)
+						cur_color = m_pngBackground.GetValue(
+						static_cast<int>(((double)pic_width / m_WindowWidth) * x),
+						static_cast<int>(((double)pic_height / m_WindowHeight) * y)
+						);
+
+					m_screen[SCREEN_SPACE(x, y)] = RGB(GET_B(cur_color), GET_G(cur_color), GET_R(cur_color));
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, m_screen[SCREEN_SPACE(x, y)]);
+					}
+				}
+		}
+		else
+			for (int x = 0; x < m_WindowWidth; x++)
+				for (int y = 0; y < m_WindowHeight; y++){
+					if (m_background_type == ID_BACKGROUND_REPEAT)
+						cur_color = m_pngBackground.GetValue(
+						x % pic_width,
+						y % pic_height
+						);
+					else if (m_background_type == ID_BACKGROUND_STRETCH)
+						cur_color = m_pngBackground.GetValue(
+						static_cast<int>(((double)pic_width / m_WindowWidth) * x),
+						static_cast<int>(((double)pic_height / m_WindowHeight) * y)
+						);
+
+					m_screen[SCREEN_SPACE(x, y)] = RGB(GET_B(cur_color), GET_G(cur_color), GET_R(cur_color));;
+					if (m_render_target == ID_RENDER_TOFILE){
+						m_pngHandle.SetValue(x, y, m_screen[SCREEN_SPACE(x, y)]);
+					}
+				}
+	}
+	else
+		std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
+
+}
+
+void CCGWorkView::set_light_pos(mat4 view_space_trans){
+	
+	vec4 pos;
+	for (int l = LIGHT_ID_1; l < MAX_LIGHT; l++){
+		if (m_lights[l].enabled){
+			pos.x = m_lights[l].posX;
+			pos.y = m_lights[l].posY;
+			pos.z = m_lights[l].posZ;
+			pos.p = 1;
+
+			if (m_lights[l].space)
+				pos = pos * view_space_trans;
+			else
+				pos = pos;
+
+			m_lights[l].rel_pos = pos / pos.p;
+
+			pos.x = m_lights[l].dirX;
+			pos.y = m_lights[l].dirY;
+			pos.z = m_lights[l].dirZ;
+			pos.p = 1;
+
+			if (m_lights[l].space)
+				pos = pos * view_space_trans;
+			else
+				pos = pos;
+
+			m_lights[l].rel_dir = pos / pos.p;
+
+		}
+	}
+}
+
 void CCGWorkView::RenderScene() {
+
+	if (m_render_target == ID_RENDER_TOFILE){
+		m_pngHandle.SetWidth(m_WindowWidth);
+		m_pngHandle.SetHeight(m_WindowHeight);
+		if (!m_pngHandle.InitWritePng()){
+			//TODO send error
+			return;
+		}
+
+	}
+
 	vec4 psudo_normal = vec4(0, 0, 0, 1);
-	std::fill_n(m_screen, m_WindowWidth * m_WindowHeight, m_background_color);
+
+	SetBackgound();
+	
 	std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
 	vec4 p1, p2;
 	polygon cur_polygon;
 	mat4 cur_transform;
 	for (unsigned int m = 0; m < models.size(); m++){
-
+		m_cur_transform = models[m].camera_trans;
 		if (m_nView == ID_VIEW_ORTHOGRAPHIC){
-			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_screen_space_trans;
+			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_screen_space_scale * m_screen_space_translate;
+			set_light_pos(models[m].camera_trans);
 		}
 		else if (m_nView == ID_VIEW_PERSPECTIVE){
-			cur_transform = models[m].obj_coord_trans * models[m].camera_trans * models[m].view_space_trans * m_prespective_trans * m_screen_space_trans;
+			cur_transform = models[m].view_space_trans * models[m].obj_coord_trans * models[m].camera_trans * models[m].prespective_translate * m_screen_space_scale * m_prespective_trans * m_screen_space_translate;
+			set_light_pos(models[m].camera_trans);
 		}
 
-		for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
-			ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
+		if (render_type == ID_VIEW_SOLID || render_type == ID_VIEW_Z){
+			if (!m_back_face_culling){
+				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+					ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
+				}
+			}
+			else{
+				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+					p1 = models[m].polygons[pol].Normal(!m_override_normals).p_a * cur_transform;
+					p2 = models[m].polygons[pol].Normal(!m_override_normals).p_b * cur_transform;
+					if (p2.z / p2.p < p1.z / p1.p) ScanConversion(z_buffer, m_screen, models[m].polygons[pol], cur_transform, models[m].color);
+				}
+			}
+		}
+		else if (render_type == ID_VIEW_WIREFRAME){
+			if (!m_back_face_culling){
+				for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
+					p1 = (models[m].points_list[pnt].p_a)* cur_transform;
+					p2 = (models[m].points_list[pnt].p_b)* cur_transform;
+					int prev_shading = m_nLightShading;
+					m_nLightShading = ID_LIGHT_SHADING_FLAT;
+					DrawLine(z_buffer, m_screen, p1, p2, models[m].color, &psudo_normal, models[m].color, &psudo_normal);
+					m_nLightShading = prev_shading;
+				}
+			}
+			else {
+				for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+					p1 = models[m].polygons[pol].Normal(!m_override_normals).p_a * cur_transform;
+					p2 = models[m].polygons[pol].Normal(!m_override_normals).p_b * cur_transform;
+					if (p2.z / p2.p < p1.z / p1.p){
+						for (unsigned int p = 0; p < models[m].polygons[pol].points.size(); p++){
+							int prev_shading = m_nLightShading;
+							m_nLightShading = ID_LIGHT_SHADING_FLAT;
+							DrawLine(z_buffer, m_screen, models[m].polygons[pol].points[p] * cur_transform, models[m].polygons[pol].points[(p + 1) % models[m].polygons[pol].points.size()] * cur_transform, models[m].color, &psudo_normal);
+							m_nLightShading = prev_shading;
+						}
+					}
+				}
+			}
 		}
 
 		if (polygon_normal == ID_POLYGON_GIVEN || polygon_normal == ID_POLYGON_CALCULATED){
@@ -1081,7 +1540,10 @@ void CCGWorkView::RenderScene() {
 				cur_polygon = models[m].polygons[count];
 				p1 = cur_polygon.Normal(given_polygon_normal).p_a * cur_transform;
 				p2 = cur_polygon.Normal(given_polygon_normal).p_b * cur_transform;
-				DrawLine(z_buffer, m_screen, p1, p2, m_polygon_norm_color, psudo_normal);
+				int prev_shading = m_nLightShading;
+				m_nLightShading = ID_LIGHT_SHADING_FLAT;
+				DrawLine(z_buffer, m_screen, p1, p2, m_polygon_norm_color, &psudo_normal);
+				m_nLightShading = prev_shading;
 			}
 		}
 
@@ -1089,43 +1551,115 @@ void CCGWorkView::RenderScene() {
 			std::vector<line> vertex_normal = models[m].Normal(given_vertex_normal);
 			for (unsigned int count = 0; count < vertex_normal.size(); count++){
 				p1 = vertex_normal[count].p_a * cur_transform;
-				p2 = vertex_normal[count].p_b * cur_transform;
-				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color, psudo_normal);
+
+				if (m_inverse == -1){
+					p2 = (2 * vertex_normal[count].p_a) - vertex_normal[count].p_b;
+					p2.p = 1;
+				}
+				else
+					p2 = vertex_normal[count].p_b;
+
+				p2 = p2 * cur_transform;
+				
+				
+
+				int prev_shading = m_nLightShading;
+				m_nLightShading = ID_LIGHT_SHADING_FLAT;
+				DrawLine(z_buffer, m_screen, p1, p2, m_vertex_norm_color, &psudo_normal);
+				m_nLightShading = prev_shading;
 			}
 		}
-		/*for (unsigned int pnt = 0; pnt < models[m].points_list.size(); pnt++){
-			p1 = (models[m].points_list[pnt].p_a)* cur_transform;
-			p2 = (models[m].points_list[pnt].p_b)* cur_transform;
 
-			DrawLine(z_buffer, m_screen, p1, p2, models[m].color);
-		}*/
+
 		if (m_bound_box){
 			DrawBoundBox(z_buffer, m_screen, models[m], cur_transform, m_boundbox_color);
+		}
+
+		if (m_silhouette){
+			std::unordered_map<line, int> line_appears_once;
+			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
+				for (unsigned int p = 0; p < models[m].polygons[count].points.size(); p++){
+					vec4 cur_vertex = models[m].polygons[count].points[p];
+					vec4 next_vertex = models[m].polygons[count].points[(p + 1) % models[m].polygons[count].points.size()];
+					line cur_line = line(cur_vertex, next_vertex);
+					line_appears_once[cur_line]++;
+				}
+			}
+
+			std::unordered_map<line, int> fitting_normals;
+			for (unsigned int count = 0; count < models[m].polygons.size(); count++){
+				std::unordered_map<vec4, line> cur_normals = models[m].polygons[count].VertexNormal(!m_override_normals);
+				line pol_normal = models[m].polygons[count].Normal(!m_override_normals);
+				p1 = pol_normal.p_a * cur_transform;
+				p2 = pol_normal.p_b * cur_transform;
+				int polygon_normal_direction = (p1.z / p1.p >= p2.z / p2.p) ? 2 : 1;
+				for (unsigned int p = 0; p < models[m].polygons[count].points.size(); p++){
+					vec4 cur_vertex = models[m].polygons[count].points[p];
+					vec4 next_vertex = models[m].polygons[count].points[(p + 1) % models[m].polygons[count].points.size()];
+					// 0 - none, 1- one positive, 2- one negative, 3 - both
+					line cur_line = line(cur_vertex, next_vertex);
+					if (fitting_normals[cur_line] == 0){
+						fitting_normals[cur_line] += polygon_normal_direction;
+					}
+					else if (fitting_normals[cur_line] == 1 && polygon_normal_direction == 2){
+						fitting_normals[cur_line] += polygon_normal_direction;
+					}
+					else if (fitting_normals[cur_line] == 2 && polygon_normal_direction == 1){
+						fitting_normals[cur_line] += polygon_normal_direction;
+					}
+					if (fitting_normals[cur_line] == 3 || line_appears_once[cur_line] == 1){
+
+						p1 = cur_normals[cur_vertex].p_a;
+						p2 = cur_normals[cur_vertex].p_b;
+						vec4 p3 = cur_normals[next_vertex].p_b;
+						vec4 p4 = cur_normals[next_vertex].p_a;
+						p2 = p1 + (p2 - p1) * m_silhouette_thickness / m_WindowHeight;
+						p3 = p4 + (p3 - p4) * m_silhouette_thickness / m_WindowHeight;
+
+						polygon pl;
+						pl.points.push_back(p1);
+						pl.points.push_back(p2);
+						pl.points.push_back(p3);
+						pl.points.push_back(p4);
+						int prev = m_nLightShading;
+						m_nLightShading = NULL;
+						std::fill_n(z_buffer, m_WindowWidth * m_WindowHeight, std::numeric_limits<double>::infinity());
+						ScanConversion(z_buffer, m_screen, pl, cur_transform, m_silhouette_color);
+						m_nLightShading = prev;
+					}
+				}
+			}
 		}
 	}
 
 
-	m_map = CreateBitmap(m_WindowWidth,		 // width
-		m_WindowHeight,		 // height
-		1,			 // Color Planes, unfortanutelly don't know what is it actually. Let it be 1
-		8 * 4,		 // Size of memory for one pixel in bits (in win32 4 bytes = 4*8 bits)
-		(void*)m_screen); // pointer to array
+	if (m_render_target == ID_RENDER_TOFILE){
+		m_pngHandle.WritePng();
+	}
+	else {
 
-	SelectObject(m_hDC, m_map); // Inserting picture into our temp HDC
+		m_map = CreateBitmap(m_WindowWidth,	// width
+			m_WindowHeight,					// height
+			1,								// Color Planes, unfortanutelly don't know what is it actually. Let it be 1
+			8 * 4,							// Size of memory for one pixel in bits (in win32 4 bytes = 4*8 bits)
+			(void*)m_screen);				// pointer to array
 
-	// Copy image from temp HDC to window
-	BitBlt(m_pDC->GetSafeHdc(), // Destination
-		0,  // x and
-		0,  // y - upper-left corner of place, where we'd like to copy
-		m_WindowWidth, // width of the region
-		m_WindowHeight, // height
-		m_hDC, // source
-		0,   // x and
-		0,   // y of upper left corner  of part of the source, from where we'd like to copy
-		SRCCOPY); // Defined DWORD to juct copy pixels. Watch more on msdn;
+		SelectObject(m_hDC, m_map);			// Inserting picture into our temp HDC
+
+		// Copy image from temp HDC to window
+		BitBlt(m_pDC->GetSafeHdc(),			// Destination
+			0,								// x and
+			0,								// y - upper-left corner of place, where we'd like to copy
+			m_WindowWidth,					// width of the region
+			m_WindowHeight,					// height
+			m_hDC,							// source
+			0,								// x and
+			0,								// y of upper left corner  of part of the source, from where we'd like to copy
+			SRCCOPY);						// Defined DWORD to juct copy pixels. Watch more on msdn;
+
+	}
 
 	DeleteObject(m_map);
-
 	return;
 }
 
@@ -1146,7 +1680,6 @@ void CCGWorkView::OnFileLoad()
 }
 
 // VIEW HANDLERS ///////////////////////////////////////////
-
 // Note: that all the following Message Handlers act in a similar way.
 // Each control or command has two functions associated with it.
 
@@ -1218,6 +1751,7 @@ void CCGWorkView::OnActionResetView()
 	reset_transform[0][0] = 1;
 	reset_transform[1][1] = 1;
 	reset_transform[2][2] = 1;
+	reset_transform[3][2] = 1;
 	reset_transform[3][3] = 1;
 
 	m_tarnsform = reset_transform;
@@ -1236,15 +1770,12 @@ void CCGWorkView::OnActionToggleView()
 	m_object_space_trans = !m_object_space_trans;
 }
 
-
-
 void CCGWorkView::OnUpdateActionToggleView(CCmdUI* pCmdUI)
 {
 	pCmdUI->SetCheck(m_object_space_trans);
 }
 
 // AXIS HANDLERS ///////////////////////////////////////////
-
 
 // Gets calles when the X button is pressed or when the Axis->X menu is selected.
 // The only thing we do here is set the ChildView member variable m_nAxis to the 
@@ -1263,7 +1794,6 @@ void CCGWorkView::OnUpdateAxisX(CCmdUI* pCmdUI)
 	pCmdUI->SetCheck(m_nAxis == ID_AXIS_X);
 }
 
-
 void CCGWorkView::OnAxisY()
 {
 	m_nAxis = ID_AXIS_Y;
@@ -1273,7 +1803,6 @@ void CCGWorkView::OnUpdateAxisY(CCmdUI* pCmdUI)
 {
 	pCmdUI->SetCheck(m_nAxis == ID_AXIS_Y);
 }
-
 
 void CCGWorkView::OnAxisZ()
 {
@@ -1295,24 +1824,26 @@ void CCGWorkView::OnUpdateAxisXY(CCmdUI* pCmdUI)
 	pCmdUI->SetCheck(m_nAxis == ID_AXIS_XY);
 }
 
-
-
 // OPTIONS HANDLERS ///////////////////////////////////////////
 
 void CCGWorkView::OnWriteframeColor()
 {
-	ColorSelectionDialog dlg(m_color_wireframe, m_boundbox_color, m_background_color, m_vertex_norm_color, m_polygon_norm_color);
+	ColorSelectionDialog dlg(m_color_wireframe, m_boundbox_color, m_background_color, m_vertex_norm_color, m_polygon_norm_color, m_silhouette_color, m_silhouette_thickness);
 	if (dlg.DoModal() == IDOK){
 
-		m_color_wireframe = RGB(GetBValue(dlg.wireframe_color), GetGValue(dlg.wireframe_color), GetRValue(dlg.wireframe_color));
+		COLORREF new_m_color_wireframe = RGB(GetBValue(dlg.wireframe_color), GetGValue(dlg.wireframe_color), GetRValue(dlg.wireframe_color));
 		m_boundbox_color = RGB(GetBValue(dlg.boundbox_color), GetGValue(dlg.boundbox_color), GetRValue(dlg.boundbox_color));
 		m_background_color = RGB(GetBValue(dlg.background_color), GetGValue(dlg.background_color), GetRValue(dlg.background_color));
 		m_vertex_norm_color = RGB(GetBValue(dlg.vertex_norm_color), GetGValue(dlg.vertex_norm_color), GetRValue(dlg.vertex_norm_color));
 		m_polygon_norm_color = RGB(GetBValue(dlg.polygon_norm_color), GetGValue(dlg.polygon_norm_color), GetRValue(dlg.polygon_norm_color));
-
+		m_silhouette_color = RGB(GetBValue(dlg.silhouette_color), GetGValue(dlg.silhouette_color), GetRValue(dlg.silhouette_color));
+		m_silhouette_thickness = dlg.silhouette_thickness;
+		if (new_m_color_wireframe != m_color_wireframe){
+			m_color_wireframe = new_m_color_wireframe;
 		for (unsigned int m = 0; m < models.size(); m++){
 			models[m].color = m_color_wireframe;
 		}
+	}
 		Invalidate();
 	}
 }
@@ -1339,12 +1870,12 @@ void CCGWorkView::OnOptionPrespectiveControl(){
 	PrespectiveControlDialog dlg(m_presepctive_d);
 	if (dlg.DoModal() == IDOK){
 		m_presepctive_d = dlg.d;
-		double alpha = m_presepctive_d - 0.5 * m_presepctive_d;
+
 		m_prespective_trans[0][0] = 1;
 		m_prespective_trans[1][1] = 1;
-		m_prespective_trans[2][2] = m_presepctive_d / (m_presepctive_d - alpha);
+		m_prespective_trans[2][2] = m_presepctive_d / (m_presepctive_d - m_presepctive_alpha);
 		m_prespective_trans[2][3] = 1 / m_presepctive_d;
-		m_prespective_trans[3][2] = -alpha * m_presepctive_d / (m_presepctive_d - alpha);
+		m_prespective_trans[3][2] = -m_presepctive_alpha * m_presepctive_d / (m_presepctive_d - m_presepctive_alpha);
 
 		Invalidate();
 	}
@@ -1371,6 +1902,7 @@ void CCGWorkView::OnOptionOthers(){
 void CCGWorkView::OnLightShadingFlat()
 {
 	m_nLightShading = ID_LIGHT_SHADING_FLAT;
+	Invalidate();
 }
 
 void CCGWorkView::OnUpdateLightShadingFlat(CCmdUI* pCmdUI)
@@ -1378,10 +1910,10 @@ void CCGWorkView::OnUpdateLightShadingFlat(CCmdUI* pCmdUI)
 	pCmdUI->SetCheck(m_nLightShading == ID_LIGHT_SHADING_FLAT);
 }
 
-
 void CCGWorkView::OnLightShadingGouraud()
 {
 	m_nLightShading = ID_LIGHT_SHADING_GOURAUD;
+	Invalidate();
 }
 
 void CCGWorkView::OnUpdateLightShadingGouraud(CCmdUI* pCmdUI)
@@ -1400,7 +1932,7 @@ void CCGWorkView::OnLightConstants()
 		dlg.SetDialogData((LightID)id, m_lights[id]);
 	}
 	dlg.SetDialogData(LIGHT_ID_AMBIENT, m_ambientLight);
-	dlg.SetLightConstants(m_ambient_k, m_diffuse_k, m_speculr_k);
+	dlg.SetLightConstants(m_ambient_k, m_diffuse_k, m_speculr_k, m_speculr_n);
 
 	if (dlg.DoModal() == IDOK)
 	{
@@ -1413,13 +1945,13 @@ void CCGWorkView::OnLightConstants()
 		m_ambient_k = dlg.m_ambient_mod;
 		m_diffuse_k = dlg.m_diffuse_mod;
 		m_speculr_k = dlg.m_specular_mod;
+		m_speculr_n = dlg.m_specular_n;
 	}
 	Invalidate();
 }
 
 void CCGWorkView::OnPolygonGiven()
 {
-	// TODO: Add your command handler code here
 	if (polygon_normal == ID_POLYGON_GIVEN)
 		polygon_normal = NULL;
 	else
@@ -1428,10 +1960,8 @@ void CCGWorkView::OnPolygonGiven()
 	Invalidate();
 }
 
-
 void CCGWorkView::OnPolygonCalculated()
 {
-	// TODO: Add your command handler code here
 	if (polygon_normal == ID_POLYGON_CALCULATED)
 		polygon_normal = NULL;
 	else
@@ -1440,24 +1970,18 @@ void CCGWorkView::OnPolygonCalculated()
 	Invalidate();
 }
 
-
 void CCGWorkView::OnUpdatePolygonCalculated(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(polygon_normal == ID_POLYGON_CALCULATED);
 }
 
-
 void CCGWorkView::OnUpdatePolygonGiven(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(polygon_normal == ID_POLYGON_GIVEN);
 }
 
-
 void CCGWorkView::OnVertexGiven()
 {
-	// TODO: Add your command handler code here
 	if (vertex_normal == ID_VERTEX_GIVEN)
 		vertex_normal = NULL;
 	else
@@ -1466,18 +1990,13 @@ void CCGWorkView::OnVertexGiven()
 	Invalidate();
 }
 
-
 void CCGWorkView::OnUpdateVertexGiven(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(vertex_normal == ID_VERTEX_GIVEN);
-
 }
-
 
 void CCGWorkView::OnVertexCalculated()
 {
-	// TODO: Add your command handler code here
 	if (vertex_normal == ID_VERTEX_CALCULATED)
 		vertex_normal = NULL;
 	else
@@ -1486,9 +2005,214 @@ void CCGWorkView::OnVertexCalculated()
 	Invalidate();
 }
 
-
 void CCGWorkView::OnUpdateVertexCalculated(CCmdUI *pCmdUI)
 {
-	// TODO: Add your command update UI handler code here
 	pCmdUI->SetCheck(vertex_normal == ID_VERTEX_CALCULATED);
 }
+
+void CCGWorkView::OnViewWireframe()
+{
+	render_type = ID_VIEW_WIREFRAME;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateViewWireframe(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(render_type == ID_VIEW_WIREFRAME);
+}
+
+void CCGWorkView::OnViewSolid()
+{
+	render_type = ID_VIEW_SOLID;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateViewSolid(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(render_type == ID_VIEW_SOLID);
+}
+
+void CCGWorkView::OnViewZ()
+{
+	render_type = ID_VIEW_Z;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateViewZ(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(render_type == ID_VIEW_Z);
+}
+
+void CCGWorkView::OnLightShadingPhong()
+{
+	m_nLightShading = ID_LIGHT_SHADING_PHONg;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateLightShadingPhong(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_nLightShading == ID_LIGHT_SHADING_PHONg);
+}
+
+void CCGWorkView::OnRenderTofile()
+{
+	CString window_pic_name(m_pic_name.c_str());
+	FileRenderDlg dlg(m_WindowWidth, m_WindowHeight, window_pic_name);
+	m_OriginalWindowHeight = m_WindowHeight;
+	m_OriginalWindowWidth = m_WindowWidth;
+
+	if (dlg.DoModal() == IDOK)
+	{
+		m_WindowHeight = dlg.m_pic_height;
+		m_WindowWidth = dlg.m_pic_width;
+
+		//// Convert a TCHAR string to a LPCSTR
+		// required for data type conversions
+		CT2CA pszConvertedAnsiString(dlg.m_pic_name);
+		m_pic_name = std::string(pszConvertedAnsiString);
+
+		m_pngHandle.SetFileName(m_pic_name.c_str());
+
+		m_render_target = ID_RENDER_TOFILE;
+		
+	}
+
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateRenderTofile(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_render_target == ID_RENDER_TOFILE);
+}
+
+void CCGWorkView::OnRenderToscreen()
+{
+	m_render_target = ID_RENDER_TOSCREEN;
+	m_WindowHeight = m_OriginalWindowHeight;
+	m_WindowWidth = m_OriginalWindowWidth;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateRenderToscreen(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_render_target == ID_RENDER_TOSCREEN);
+}
+
+void CCGWorkView::OnBackgroundSetimage()
+{
+	TCHAR szFilters[] = _T("PNG Data Files (*.png)|*.png|All Files (*.*)|*.*||");
+
+	CFileDialog dlg(TRUE, _T("png"), _T("*.png"), OFN_FILEMUSTEXIST | OFN_HIDEREADONLY, szFilters);
+
+	if (dlg.DoModal() == IDOK) {	
+		CT2CA pszConvertedAnsiString(dlg.GetPathName()); // Full path and filename
+
+		std::string string_filename = std::string(pszConvertedAnsiString);
+
+		m_pngBackground.SetFileName(string_filename.c_str());
+		
+		
+		if (m_pngBackground.ReadPng()){
+			m_valid_background = true;
+			m_pngBackground.ReadPng();
+		}
+		else {
+			m_valid_background = false;
+			// TODO eror message
+		}
+
+		Invalidate();	// force a WM_PAINT for drawing.
+	}
+
+}
+
+void CCGWorkView::OnBackgroundActive()
+{
+	m_active_background = !m_active_background;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateBackgroundActive(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_active_background);
+}
+
+void CCGWorkView::OnBackgroundRepeat()
+{
+	m_background_type = ID_BACKGROUND_REPEAT;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateBackgroundRepeat(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_background_type == ID_BACKGROUND_REPEAT);
+}
+
+void CCGWorkView::OnBackgroundStretch()
+{
+	m_background_type = ID_BACKGROUND_STRETCH;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateBackgroundStretch(CCmdUI *pCmdUI)
+{
+	pCmdUI->SetCheck(m_background_type == ID_BACKGROUND_STRETCH);
+}
+
+void CCGWorkView::OnOptionsBackfaceculling()
+{
+	// TODO: Add your command handler code here
+	
+	m_back_face_culling = !m_back_face_culling;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateOptionsBackfaceculling(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_back_face_culling);
+}
+
+void CCGWorkView::OnOptionsNormalinverse()
+{
+	for (unsigned int m = 0; m < models.size(); m++){
+		for (unsigned int pol = 0; pol < models[m].polygons.size(); pol++){
+			models[m].polygons[pol].inverse();
+		}
+	}
+	m_inverse = -1 * m_inverse;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateOptionsNormalinverse(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_inverse == -1);
+}
+
+void CCGWorkView::OnUpdateOptionsOverridegivennormal(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_override_normals);
+}
+
+void CCGWorkView::OnOptionsOverridegivennormal()
+{
+	m_override_normals = !m_override_normals;
+	Invalidate();
+}
+
+void CCGWorkView::OnOptionsAddsilhouette()
+{
+	// TODO: Add your command handler code here
+	m_silhouette = !m_silhouette;
+	Invalidate();
+}
+
+void CCGWorkView::OnUpdateOptionsAddsilhouette(CCmdUI *pCmdUI)
+{
+	// TODO: Add your command update UI handler code here
+	pCmdUI->SetCheck(m_silhouette);
+
+}
+
